@@ -43,7 +43,7 @@ public class ButtonPreviewPanel extends JPanel {
 
     private static final Color ACTIVE_GUIDE_BORDER = new Color(56, 122, 232, 210);
     private static final Color DRAG_SNAP_GUIDE = new Color(52, 133, 255, 185);
-    private static final int DRAG_SNAP_THRESHOLD = 10;
+    private static final int DRAG_SNAP_THRESHOLD = 6;
 
     private ProjectData projectData;
     private int activeLayerIndex = -1;
@@ -122,18 +122,20 @@ public class ButtonPreviewPanel extends JPanel {
                     return;
                 }
 
+                PreviewGeometry geometry = getPreviewGeometry();
                 int dx = event.getX() - lastDragX;
                 int dy = event.getY() - lastDragY;
 
                 if (layer.isTextLayer()) {
                     int nextX = layer.getTextOffsetX() + dx;
                     int nextY = layer.getTextOffsetY() + dy;
+                    int centerSnapOffsetY = computeTextCenterSnapOffsetY(layer.getLayerName(), geometry.buttonDiameter);
 
                     snapToCenterX = Math.abs(nextX) <= DRAG_SNAP_THRESHOLD;
-                    snapToCenterY = Math.abs(nextY) <= DRAG_SNAP_THRESHOLD;
+                    snapToCenterY = Math.abs(nextY - centerSnapOffsetY) <= DRAG_SNAP_THRESHOLD;
 
                     layer.setTextOffsetX(snapToCenterX ? 0 : nextX);
-                    layer.setTextOffsetY(snapToCenterY ? 0 : nextY);
+                    layer.setTextOffsetY(snapToCenterY ? centerSnapOffsetY : nextY);
                 } else {
                     int nextX = layer.getPhotoOffsetX() + dx;
                     int nextY = layer.getPhotoOffsetY() + dy;
@@ -361,6 +363,16 @@ public class ButtonPreviewPanel extends JPanel {
             return centerY + (int) (buttonDiameter * 0.12);
         }
         return calculateTextBaseline(layerName, centerY);
+    }
+
+    private int computeTextCenterSnapOffsetY(String layerName, int buttonDiameter) {
+        if ("Text 1".equals(layerName)) {
+            return (int) Math.round(buttonDiameter * 0.12);
+        }
+        if ("Text 2".equals(layerName)) {
+            return (int) Math.round(-buttonDiameter * 0.12);
+        }
+        return 0;
     }
 
     private boolean isTopArcLayer(String layerName, int baselineY, int centerY) {
