@@ -42,19 +42,8 @@ public class ProjectData {
     }
 
     private void initializeDefaultLayers() {
-        LayerData text1 = new LayerData("Text 1", LayerData.LayerKind.TEXT);
-        text1.setTextContent("Text 1");
-        text1.setFontSize(30);
-
-        LayerData text2 = new LayerData("Text 2", LayerData.LayerKind.TEXT);
-        text2.setTextContent("Text 2");
-        text2.setFontSize(26);
-
         LayerData photo = new LayerData("Photo", LayerData.LayerKind.PHOTO);
-
         layers.add(photo);
-        layers.add(text1);
-        layers.add(text2);
     }
 
     public String getProjectId() {

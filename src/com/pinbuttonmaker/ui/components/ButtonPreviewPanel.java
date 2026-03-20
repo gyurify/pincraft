@@ -356,21 +356,15 @@ public class ButtonPreviewPanel extends JPanel {
     }
 
     private int getStraightBaseline(String layerName, int centerY, int buttonDiameter) {
-        if ("Text 1".equals(layerName)) {
-            return centerY - (int) (buttonDiameter * 0.12);
-        }
-        if ("Text 2".equals(layerName)) {
-            return centerY + (int) (buttonDiameter * 0.12);
+        if ("Text 1".equals(layerName) || "Text 2".equals(layerName)) {
+            return centerY;
         }
         return calculateTextBaseline(layerName, centerY);
     }
 
     private int computeTextCenterSnapOffsetY(String layerName, int buttonDiameter) {
-        if ("Text 1".equals(layerName)) {
-            return (int) Math.round(buttonDiameter * 0.12);
-        }
-        if ("Text 2".equals(layerName)) {
-            return (int) Math.round(-buttonDiameter * 0.12);
+        if ("Text 1".equals(layerName) || "Text 2".equals(layerName)) {
+            return 0;
         }
         return 0;
     }
@@ -608,6 +602,11 @@ public class ButtonPreviewPanel extends JPanel {
         int dx = x - geometry.centerX;
         int dy = y - geometry.centerY;
         return (dx * dx + dy * dy) <= (radius * radius);
+    }
+
+    public boolean isPointInsideButtonCircle(int x, int y) {
+        PreviewGeometry geometry = getPreviewGeometry();
+        return geometry.isValid() && isInsideButtonCircle(x, y, geometry);
     }
 
     private PreviewGeometry getPreviewGeometry() {

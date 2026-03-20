@@ -19,6 +19,7 @@ import java.awt.Image;
 import java.awt.Insets;
 import java.awt.Point;
 import java.awt.Window;
+import java.awt.datatransfer.DataFlavor;
 import java.awt.event.ComponentAdapter;
 import java.awt.event.ComponentEvent;
 import java.awt.event.MouseAdapter;
@@ -49,6 +50,7 @@ import javax.swing.JScrollPane;
 import javax.swing.JSplitPane;
 import javax.swing.SwingConstants;
 import javax.swing.SwingUtilities;
+import javax.swing.TransferHandler;
 import javax.swing.border.EmptyBorder;
 import javax.swing.event.DocumentEvent;
 import javax.swing.event.DocumentListener;
@@ -155,6 +157,7 @@ public class EditorPage extends JPanel {
         this.appState = appState;
         this.previewPanel = new ButtonPreviewPanel();
         this.previewPanel.setLayerSelectionListener(this::handlePreviewLayerSelection);
+        installPreviewImageDropSupport();
         this.layerTabButtons = new ArrayList<>();
         this.draggingLayerIndex = -1;
         this.layerDragStartX = 0;
@@ -1009,26 +1012,128 @@ public class EditorPage extends JPanel {
                 JOptionPane.showMessageDialog(this, "The selected file is not a supported image.", "Upload Image", JOptionPane.ERROR_MESSAGE);
                 return;
             }
-
-            PhotoProcessResult processed = maybeCropImage(image);
-            activeLayer.setPhotoImage(processed.image);
-            if (processed.cropApplied) {
-                activeLayer.setCropData(processed.cropBounds);
-            } else {
-                activeLayer.clearCropData();
-            }
-            activeLayer.centerPhoto();
-            activeLayer.setVisible(true);
-            if (activeLayer.getTransparencyPercent() == 0) {
-                activeLayer.setTransparencyPercent(100);
-            }
-
-            refreshControlsFromActiveLayer();
-            refreshLayerTabStyles();
-            previewPanel.repaint();
+            applyImageToPhotoLayer(activeLayer, image);
         } catch (IOException exception) {
             JOptionPane.showMessageDialog(this, "Unable to read image: " + exception.getMessage(), "Upload Image", JOptionPane.ERROR_MESSAGE);
         }
+    }
+
+    private void installPreviewImageDropSupport() {
+        previewPanel.setTransferHandler(new TransferHandler() {
+            @Override
+            public boolean canImport(TransferSupport support) {
+                if (support == null || !support.isDrop() || !support.isDataFlavorSupported(DataFlavor.javaFileListFlavor)) {
+                    return false;
+                }
+
+                Point dropPoint = support.getDropLocation().getDropPoint();
+                return dropPoint != null && previewPanel.isPointInsideButtonCircle(dropPoint.x, dropPoint.y);
+            }
+
+            @Override
+            @SuppressWarnings("unchecked")
+            public boolean importData(TransferSupport support) {
+                if (!canImport(support)) {
+                    return false;
+                }
+
+                try {
+                    Object data = support.getTransferable().getTransferData(DataFlavor.javaFileListFlavor);
+                    if (!(data instanceof List<?>)) {
+                        return false;
+                    }
+
+                    List<File> files = (List<File>) data;
+                    BufferedImage image = null;
+                    File sourceFile = null;
+
+                    for (File file : files) {
+                        if (file == null || !file.isFile()) {
+                            continue;
+                        }
+
+                        BufferedImage candidate = ImageIO.read(file);
+                        if (candidate != null) {
+                            image = candidate;
+                            sourceFile = file;
+                            break;
+                        }
+                    }
+
+                    if (image == null) {
+                        JOptionPane.showMessageDialog(
+                            EditorPage.this,
+                            "Dropped file is not a supported image.",
+                            "Drop Image",
+                            JOptionPane.ERROR_MESSAGE
+                        );
+                        return false;
+                    }
+
+                    LayerData targetLayer = ensureActivePhotoLayerForImport();
+                    if (targetLayer == null) {
+                        return false;
+                    }
+
+                    applyImageToPhotoLayer(targetLayer, image);
+                    if (sourceFile != null) {
+                        previewPanel.repaint();
+                    }
+                    return true;
+                } catch (Exception exception) {
+                    JOptionPane.showMessageDialog(
+                        EditorPage.this,
+                        "Unable to import dropped image: " + exception.getMessage(),
+                        "Drop Image",
+                        JOptionPane.ERROR_MESSAGE
+                    );
+                    return false;
+                }
+            }
+        });
+    }
+
+    private LayerData ensureActivePhotoLayerForImport() {
+        LayerData activeLayer = getActiveLayer();
+        if (isPhotoLayer(activeLayer)) {
+            return activeLayer;
+        }
+
+        int photoIndex = findFirstPhotoLayerIndex();
+        if (photoIndex < 0) {
+            addPhotoLayer();
+            photoIndex = findFirstPhotoLayerIndex();
+        }
+
+        if (photoIndex < 0) {
+            return null;
+        }
+
+        switchActiveLayer(photoIndex);
+        return getActiveLayer();
+    }
+
+    private void applyImageToPhotoLayer(LayerData photoLayer, BufferedImage image) {
+        if (photoLayer == null || image == null) {
+            return;
+        }
+
+        PhotoProcessResult processed = maybeCropImage(image);
+        photoLayer.setPhotoImage(processed.image);
+        if (processed.cropApplied) {
+            photoLayer.setCropData(processed.cropBounds);
+        } else {
+            photoLayer.clearCropData();
+        }
+        photoLayer.centerPhoto();
+        photoLayer.setVisible(true);
+        if (photoLayer.getTransparencyPercent() == 0) {
+            photoLayer.setTransparencyPercent(100);
+        }
+
+        refreshControlsFromActiveLayer();
+        refreshLayerTabStyles();
+        previewPanel.repaint();
     }
 
     private JFileChooser createImageChooserWithPreview() {
@@ -1358,9 +1463,7 @@ public class EditorPage extends JPanel {
         removeLegacyRoundTextLayers();
 
         if (projectData.getLayers().isEmpty()) {
-            LayerData defaultText = new LayerData("Text 1", LayerData.LayerKind.TEXT);
-            defaultText.setTextContent("Text 1");
-            projectData.addLayer(defaultText);
+            projectData.addLayer(new LayerData("Photo", LayerData.LayerKind.PHOTO));
         }
 
         if (activeLayerIndex < 0 || activeLayerIndex >= projectData.getLayers().size()) {

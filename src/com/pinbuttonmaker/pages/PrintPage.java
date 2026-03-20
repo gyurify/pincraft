@@ -1,14 +1,23 @@
 package com.pinbuttonmaker.pages;
 
+import java.awt.AlphaComposite;
 import java.awt.BorderLayout;
 import java.awt.Color;
 import java.awt.Component;
+import java.awt.Container;
 import java.awt.Dimension;
 import java.awt.FlowLayout;
 import java.awt.Font;
+import java.awt.FontMetrics;
+import java.awt.Graphics2D;
 import java.awt.Image;
+import java.awt.Shape;
 import java.awt.event.HierarchyEvent;
+import java.awt.event.MouseAdapter;
+import java.awt.event.MouseEvent;
+import java.awt.geom.Ellipse2D;
 import java.awt.image.BufferedImage;
+import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -19,11 +28,14 @@ import javax.swing.ImageIcon;
 import javax.swing.JCheckBox;
 import javax.swing.JComboBox;
 import javax.swing.JComponent;
+import javax.swing.JFileChooser;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
 import javax.swing.JSplitPane;
 import javax.swing.SwingConstants;
+import javax.swing.TransferHandler;
+import javax.swing.filechooser.FileNameExtensionFilter;
 
 import com.pinbuttonmaker.AppRouter;
 import com.pinbuttonmaker.AppState;
@@ -32,6 +44,7 @@ import com.pinbuttonmaker.data.ProjectData;
 import com.pinbuttonmaker.ui.UIStyles;
 import com.pinbuttonmaker.ui.components.CustomButton;
 import com.pinbuttonmaker.ui.components.PaperPreviewPanel;
+import com.pinbuttonmaker.util.PdfExporter;
 import com.pinbuttonmaker.util.Utils;
 
 public class PrintPage extends JPanel {
@@ -70,9 +83,12 @@ public class PrintPage extends JPanel {
     private JLabel previewTitleLabel;
     private JLabel fitSummaryLabel;
 
+    private final List<PaperPreviewPanel.PrintableItem> galleryItems;
+
     public PrintPage(AppRouter router, AppState appState) {
         this.router = router;
         this.appState = appState;
+        this.galleryItems = new ArrayList<>();
 
         buildLayout();
         syncButtonSizeFromCurrentProject();
@@ -169,7 +185,7 @@ public class PrintPage extends JPanel {
         downloadPdfButton.setFont(new Font("SansSerif", Font.BOLD, 16));
         downloadPdfButton.setPreferredSize(new Dimension(160, 48));
         downloadPdfButton.setMaximumSize(new Dimension(160, 48));
-        downloadPdfButton.addActionListener(event -> Utils.showInfo(this, "PDF export is prototype-only in this build."));
+        downloadPdfButton.addActionListener(event -> exportCurrentLayoutAsPdf());
 
         JPanel actionRow = new JPanel(new FlowLayout(FlowLayout.CENTER, 12, 0));
         actionRow.setOpaque(false);
@@ -286,42 +302,89 @@ public class PrintPage extends JPanel {
 
     private void refreshGallery() {
         galleryListPanel.removeAll();
+        galleryItems.clear();
 
-        ProjectData currentProject = appState.getCurrentProject();
-        List<LayerData> printableLayers = getEligibleGalleryLayers(currentProject);
+        ProjectData gallerySourceProject = getGallerySourceProject();
+        List<LayerEntry> printableEntries = getEligibleGalleryEntries(gallerySourceProject);
 
-        if (currentProject == null || printableLayers.isEmpty()) {
+        if (gallerySourceProject == null || printableEntries.isEmpty()) {
             JLabel empty = new JLabel("No printable layers in the current project.");
             empty.setFont(new Font("SansSerif", Font.PLAIN, 13));
             empty.setForeground(TEXT_SECONDARY);
             empty.setBorder(BorderFactory.createEmptyBorder(8, 4, 8, 4));
             galleryListPanel.add(empty);
         } else {
-            JLabel sourceLabel = new JLabel("Source: " + getDisplayProjectName(currentProject));
+            JLabel sourceLabel = new JLabel("Source: " + getDisplayProjectName(gallerySourceProject));
             sourceLabel.setFont(new Font("SansSerif", Font.BOLD, 12));
             sourceLabel.setForeground(TEXT_SECONDARY);
             sourceLabel.setBorder(BorderFactory.createEmptyBorder(0, 2, 8, 2));
             galleryListPanel.add(sourceLabel);
 
-            for (LayerData layer : printableLayers) {
-                galleryListPanel.add(createGalleryItem(layer));
+            for (LayerEntry entry : printableEntries) {
+                PaperPreviewPanel.PrintableItem item = createPrintableItem(gallerySourceProject, entry.layer, entry.layerIndex);
+                galleryItems.add(item);
+
+                galleryListPanel.add(createGalleryItem(item, entry.layer));
                 galleryListPanel.add(Box.createVerticalStrut(8));
             }
         }
+
+        paperPreviewPanel.setAvailableItems(galleryItems);
 
         galleryListPanel.revalidate();
         galleryListPanel.repaint();
     }
 
-    private List<LayerData> getEligibleGalleryLayers(ProjectData project) {
-        List<LayerData> printableLayers = new ArrayList<>();
+    private void exportCurrentLayoutAsPdf() {
+        JFileChooser chooser = new JFileChooser();
+        chooser.setDialogTitle("Export PDF");
+        chooser.setFileFilter(new FileNameExtensionFilter("PDF Files (*.pdf)", "pdf"));
+        chooser.setSelectedFile(new File("pincraft-print-layout.pdf"));
+
+        int option = chooser.showSaveDialog(this);
+        if (option != JFileChooser.APPROVE_OPTION) {
+            return;
+        }
+
+        File selected = chooser.getSelectedFile();
+        if (selected == null) {
+            return;
+        }
+
+        File outputFile = selected.getName().toLowerCase().endsWith(".pdf")
+            ? selected
+            : new File(selected.getParentFile(), selected.getName() + ".pdf");
+
+        try {
+            PaperPreviewPanel.ExportSnapshot snapshot = paperPreviewPanel.buildExportSnapshot();
+            PdfExporter.exportA4Pdf(outputFile, snapshot);
+            Utils.showInfo(this, "PDF exported to:\n" + outputFile.getAbsolutePath());
+        } catch (Exception exception) {
+            Utils.showInfo(this, "PDF export failed: " + exception.getMessage());
+        }
+    }
+
+    private ProjectData getGallerySourceProject() {
+        ProjectData currentProject = appState.getCurrentProject();
+        if (currentProject == null) {
+            return null;
+        }
+
+        ProjectData savedSnapshot = appState.getSavedProjectById(currentProject.getProjectId());
+        return savedSnapshot == null ? currentProject : savedSnapshot;
+    }
+
+    private List<LayerEntry> getEligibleGalleryEntries(ProjectData project) {
+        List<LayerEntry> printableLayers = new ArrayList<>();
         if (project == null) {
             return printableLayers;
         }
 
-        for (LayerData layer : project.getLayers()) {
+        List<LayerData> layers = project.getLayers();
+        for (int i = 0; i < layers.size(); i++) {
+            LayerData layer = layers.get(i);
             if (isEligibleGalleryLayer(layer)) {
-                printableLayers.add(layer);
+                printableLayers.add(new LayerEntry(i, layer));
             }
         }
         return printableLayers;
@@ -340,7 +403,19 @@ public class PrintPage extends JPanel {
         return layer.hasPhotoImage();
     }
 
-    private JPanel createGalleryItem(LayerData layer) {
+    private PaperPreviewPanel.PrintableItem createPrintableItem(ProjectData project, LayerData layer, int layerIndex) {
+        String itemId = buildPrintableItemId(project, layerIndex);
+        String label = getLayerDisplayName(layer);
+        BufferedImage previewImage = createCircleLayerPreview(layer, 220);
+        return new PaperPreviewPanel.PrintableItem(itemId, label, previewImage);
+    }
+
+    private String buildPrintableItemId(ProjectData project, int layerIndex) {
+        String projectId = project == null || project.getProjectId() == null ? "project" : project.getProjectId();
+        return projectId + "::" + layerIndex;
+    }
+
+    private JPanel createGalleryItem(PaperPreviewPanel.PrintableItem itemData, LayerData layer) {
         JPanel item = new JPanel(new BorderLayout(0, 8));
         item.setBackground(Color.WHITE);
         item.setBorder(BorderFactory.createCompoundBorder(
@@ -348,7 +423,7 @@ public class PrintPage extends JPanel {
             BorderFactory.createEmptyBorder(10, 10, 10, 10)
         ));
 
-        JLabel nameLabel = new JLabel(getLayerDisplayName(layer));
+        JLabel nameLabel = new JLabel(itemData.getDisplayName());
         nameLabel.setFont(new Font("SansSerif", Font.BOLD, 13));
         nameLabel.setForeground(TEXT_PRIMARY);
 
@@ -359,7 +434,7 @@ public class PrintPage extends JPanel {
             BorderFactory.createLineBorder(new Color(226, 232, 241)),
             BorderFactory.createEmptyBorder(8, 8, 8, 8)
         ));
-        previewBox.add(createGalleryContentPreview(layer), BorderLayout.CENTER);
+        previewBox.add(createGalleryContentPreview(itemData), BorderLayout.CENTER);
 
         JLabel detailsLabel = new JLabel(buildLayerDetails(layer));
         detailsLabel.setFont(new Font("SansSerif", Font.PLAIN, 12));
@@ -368,28 +443,134 @@ public class PrintPage extends JPanel {
         item.add(nameLabel, BorderLayout.NORTH);
         item.add(previewBox, BorderLayout.CENTER);
         item.add(detailsLabel, BorderLayout.SOUTH);
+
+        installGalleryDrag(item, itemData.getItemId());
+
         return item;
     }
 
-    private JComponent createGalleryContentPreview(LayerData layer) {
-        if (layer.isTextLayer()) {
-            JLabel previewLabel = new JLabel(getLayerTextPreview(layer));
-            previewLabel.setFont(new Font(layer.getFontFamily(), Font.BOLD, Math.max(12, Math.min(18, layer.getFontSize()))));
-            previewLabel.setForeground(layer.getColor() == null ? TEXT_PRIMARY : layer.getColor());
-            previewLabel.setVerticalAlignment(SwingConstants.CENTER);
-            return previewLabel;
-        }
+    private JComponent createGalleryContentPreview(PaperPreviewPanel.PrintableItem item) {
+        JLabel previewLabel = new JLabel();
+        previewLabel.setHorizontalAlignment(SwingConstants.CENTER);
+        previewLabel.setVerticalAlignment(SwingConstants.CENTER);
 
-        BufferedImage image = layer.getPhotoImage();
-        JLabel photoLabel = new JLabel();
-        photoLabel.setHorizontalAlignment(SwingConstants.LEFT);
-        photoLabel.setVerticalAlignment(SwingConstants.CENTER);
-
+        BufferedImage image = item.getPreviewImage();
         if (image != null) {
-            photoLabel.setIcon(new ImageIcon(createScaledPreviewImage(image, 84)));
+            previewLabel.setIcon(new ImageIcon(createScaledPreviewImage(image, 92)));
+        } else {
+            previewLabel.setText(item.getDisplayName());
+            previewLabel.setForeground(TEXT_SECONDARY);
+            previewLabel.setFont(new Font("SansSerif", Font.PLAIN, 12));
         }
 
-        return photoLabel;
+        return previewLabel;
+    }
+
+    private void installGalleryDrag(JComponent root, String itemId) {
+        GalleryItemTransferHandler transferHandler = new GalleryItemTransferHandler(itemId);
+        MouseAdapter dragStarter = new MouseAdapter() {
+            @Override
+            public void mousePressed(MouseEvent event) {
+                JComponent source = (JComponent) event.getSource();
+                TransferHandler handler = source.getTransferHandler();
+                if (handler != null) {
+                    handler.exportAsDrag(source, event, TransferHandler.COPY);
+                }
+            }
+        };
+
+        applyDragSupportRecursive(root, transferHandler, dragStarter);
+    }
+
+    private void applyDragSupportRecursive(Component component, TransferHandler transferHandler, MouseAdapter dragStarter) {
+        if (component instanceof JComponent) {
+            JComponent dragComponent = (JComponent) component;
+            dragComponent.setTransferHandler(transferHandler);
+            dragComponent.addMouseListener(dragStarter);
+        }
+
+        if (component instanceof Container) {
+            for (Component child : ((Container) component).getComponents()) {
+                applyDragSupportRecursive(child, transferHandler, dragStarter);
+            }
+        }
+    }
+
+    private BufferedImage createCircleLayerPreview(LayerData layer, int size) {
+        int dimension = Math.max(96, size);
+        BufferedImage image = new BufferedImage(dimension, dimension, BufferedImage.TYPE_INT_ARGB);
+        Graphics2D g2 = image.createGraphics();
+
+        g2.setRenderingHint(java.awt.RenderingHints.KEY_ANTIALIASING, java.awt.RenderingHints.VALUE_ANTIALIAS_ON);
+        g2.setRenderingHint(java.awt.RenderingHints.KEY_TEXT_ANTIALIASING, java.awt.RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
+
+        int padding = Math.max(8, dimension / 16);
+        int diameter = dimension - (padding * 2);
+        int x = padding;
+        int y = padding;
+
+        Ellipse2D clip = new Ellipse2D.Double(x, y, diameter, diameter);
+
+        g2.setColor(new Color(247, 249, 253));
+        g2.fill(clip);
+
+        Shape oldClip = g2.getClip();
+        g2.setClip(clip);
+
+        float opacity = Math.max(0.0f, Math.min(1.0f, layer.getOpacity()));
+        g2.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, opacity));
+
+        if (layer.isTextLayer()) {
+            drawTextLayerPreview(g2, layer, x, y, diameter);
+        } else {
+            drawPhotoLayerPreview(g2, layer, x, y, diameter);
+        }
+
+        g2.setClip(oldClip);
+
+        g2.setComposite(AlphaComposite.SrcOver);
+        g2.setColor(new Color(188, 200, 219));
+        g2.setStroke(new java.awt.BasicStroke(2f));
+        g2.draw(clip);
+
+        g2.dispose();
+        return image;
+    }
+
+    private void drawTextLayerPreview(Graphics2D g2, LayerData layer, int x, int y, int diameter) {
+        String text = getLayerTextPreview(layer);
+        int fontSize = Math.max(14, Math.min(40, (int) Math.round(layer.getFontSize() * (diameter / 220.0))));
+
+        Font font = new Font(layer.getFontFamily(), Font.BOLD, fontSize);
+        g2.setFont(font);
+        g2.setColor(layer.getColor() == null ? new Color(35, 46, 66) : layer.getColor());
+
+        FontMetrics metrics = g2.getFontMetrics(font);
+        int textWidth = metrics.stringWidth(text);
+
+        int centerX = x + (diameter / 2) + layer.getTextOffsetX();
+        int baseline = y + (diameter / 2) + (metrics.getAscent() - metrics.getDescent()) / 2 + layer.getTextOffsetY();
+        g2.drawString(text, centerX - (textWidth / 2), baseline);
+    }
+
+    private void drawPhotoLayerPreview(Graphics2D g2, LayerData layer, int x, int y, int diameter) {
+        BufferedImage photo = layer.getPhotoImage();
+        if (photo == null) {
+            g2.setColor(new Color(222, 229, 238));
+            g2.fillRect(x, y, diameter, diameter);
+            return;
+        }
+
+        double coverScale = Math.max((double) diameter / Math.max(1, photo.getWidth()), (double) diameter / Math.max(1, photo.getHeight()));
+        double userScale = layer.getPhotoScalePercent() / 100.0;
+        double scale = coverScale * userScale;
+
+        int drawWidth = Math.max(1, (int) Math.round(photo.getWidth() * scale));
+        int drawHeight = Math.max(1, (int) Math.round(photo.getHeight() * scale));
+        int drawX = x + (diameter - drawWidth) / 2 + layer.getPhotoOffsetX();
+        int drawY = y + (diameter - drawHeight) / 2 + layer.getPhotoOffsetY();
+
+        g2.drawImage(photo, drawX, drawY, drawWidth, drawHeight, null);
     }
 
     private Image createScaledPreviewImage(BufferedImage image, int maxSize) {
@@ -444,19 +625,6 @@ public class PrintPage extends JPanel {
         return project.getProjectName().trim();
     }
 
-    private String resolveProjectButtonSizeText(double diameterMm) {
-        ButtonSizeOption bestMatch = BUTTON_SIZE_OPTIONS[0];
-        double bestDiff = Double.MAX_VALUE;
-        for (ButtonSizeOption option : BUTTON_SIZE_OPTIONS) {
-            double diff = Math.abs(option.toMillimeters() - diameterMm);
-            if (diff < bestDiff) {
-                bestDiff = diff;
-                bestMatch = option;
-            }
-        }
-        return bestMatch.displayLabel;
-    }
-
     private PaperSizeOption getSelectedPaperOption() {
         PaperSizeOption selected = (PaperSizeOption) paperSizeCombo.getSelectedItem();
         return selected == null ? PAPER_SIZE_OPTIONS[0] : selected;
@@ -465,6 +633,34 @@ public class PrintPage extends JPanel {
     private ButtonSizeOption getSelectedButtonOption() {
         ButtonSizeOption selected = (ButtonSizeOption) buttonSizeCombo.getSelectedItem();
         return selected == null ? BUTTON_SIZE_OPTIONS[4] : selected;
+    }
+
+    private static final class LayerEntry {
+        private final int layerIndex;
+        private final LayerData layer;
+
+        private LayerEntry(int layerIndex, LayerData layer) {
+            this.layerIndex = layerIndex;
+            this.layer = layer;
+        }
+    }
+
+    private static final class GalleryItemTransferHandler extends TransferHandler {
+        private final String itemId;
+
+        private GalleryItemTransferHandler(String itemId) {
+            this.itemId = itemId;
+        }
+
+        @Override
+        protected java.awt.datatransfer.Transferable createTransferable(JComponent component) {
+            return new java.awt.datatransfer.StringSelection(PaperPreviewPanel.buildGalleryDragPayload(itemId));
+        }
+
+        @Override
+        public int getSourceActions(JComponent component) {
+            return COPY;
+        }
     }
 
     private static final class PaperSizeOption {
