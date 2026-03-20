@@ -1,6 +1,8 @@
 package com.pinbuttonmaker;
 
 import java.awt.CardLayout;
+import java.util.LinkedHashMap;
+import java.util.Map;
 
 import javax.swing.JPanel;
 
@@ -8,6 +10,8 @@ import com.pinbuttonmaker.pages.EditorPage;
 import com.pinbuttonmaker.pages.HomePage;
 import com.pinbuttonmaker.pages.LoginPage;
 import com.pinbuttonmaker.pages.PrintPage;
+import com.pinbuttonmaker.ui.components.FadablePanel;
+import com.pinbuttonmaker.util.FadeAnimator;
 
 public class AppRouter {
     public static final String ROUTE_LOGIN = "login";
@@ -18,20 +22,28 @@ public class AppRouter {
     private final CardLayout cardLayout;
     private final JPanel mainPanel;
     private final AppState appState;
+    private final Map<String, FadablePanel> routePanels;
 
     public AppRouter(AppState appState) {
         this.appState = appState;
         this.cardLayout = new CardLayout();
         this.mainPanel = new JPanel(cardLayout);
+        this.routePanels = new LinkedHashMap<>();
 
         registerPages();
     }
 
     private void registerPages() {
-        mainPanel.add(new LoginPage(this, appState), ROUTE_LOGIN);
-        mainPanel.add(new HomePage(this, appState), ROUTE_HOME);
-        mainPanel.add(new EditorPage(this, appState), ROUTE_EDITOR);
-        mainPanel.add(new PrintPage(this, appState), ROUTE_PRINT);
+        registerRoute(ROUTE_LOGIN, new LoginPage(this, appState));
+        registerRoute(ROUTE_HOME, new HomePage(this, appState));
+        registerRoute(ROUTE_EDITOR, new EditorPage(this, appState));
+        registerRoute(ROUTE_PRINT, new PrintPage(this, appState));
+    }
+
+    private void registerRoute(String route, JPanel content) {
+        FadablePanel wrapper = new FadablePanel(content);
+        routePanels.put(route, wrapper);
+        mainPanel.add(wrapper, route);
     }
 
     public JPanel getMainPanel() {
@@ -40,6 +52,10 @@ public class AppRouter {
 
     public void navigate(String route) {
         cardLayout.show(mainPanel, route);
+        FadablePanel activePanel = routePanels.get(route);
+        if (activePanel != null) {
+            FadeAnimator.fadeIn(activePanel);
+        }
     }
 
     public void showLogin() {

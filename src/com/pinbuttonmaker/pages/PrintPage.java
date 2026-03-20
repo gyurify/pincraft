@@ -304,29 +304,24 @@ public class PrintPage extends JPanel {
         galleryListPanel.removeAll();
         galleryItems.clear();
 
-        ProjectData gallerySourceProject = getGallerySourceProject();
-        List<LayerEntry> printableEntries = getEligibleGalleryEntries(gallerySourceProject);
-
-        if (gallerySourceProject == null || printableEntries.isEmpty()) {
-            JLabel empty = new JLabel("No printable layers in the current project.");
+        List<ProjectData> savedDesigns = getPrintableSavedProjects();
+        if (savedDesigns.isEmpty()) {
+            JLabel empty = new JLabel("No saved designs yet. Save a design in Editor, then drag it here.");
             empty.setFont(new Font("SansSerif", Font.PLAIN, 13));
             empty.setForeground(TEXT_SECONDARY);
             empty.setBorder(BorderFactory.createEmptyBorder(8, 4, 8, 4));
             galleryListPanel.add(empty);
         } else {
-            JLabel sourceLabel = new JLabel("Source: " + getDisplayProjectName(gallerySourceProject));
-            sourceLabel.setFont(new Font("SansSerif", Font.BOLD, 12));
-            sourceLabel.setForeground(TEXT_SECONDARY);
-            sourceLabel.setBorder(BorderFactory.createEmptyBorder(0, 2, 8, 2));
-            galleryListPanel.add(sourceLabel);
+            JPanel cardsWrap = new JPanel(new FlowLayout(FlowLayout.LEFT, 10, 8));
+            cardsWrap.setOpaque(false);
 
-            for (LayerEntry entry : printableEntries) {
-                PaperPreviewPanel.PrintableItem item = createPrintableItem(gallerySourceProject, entry.layer, entry.layerIndex);
+            for (ProjectData project : savedDesigns) {
+                PaperPreviewPanel.PrintableItem item = createPrintableItem(project);
                 galleryItems.add(item);
-
-                galleryListPanel.add(createGalleryItem(item, entry.layer));
-                galleryListPanel.add(Box.createVerticalStrut(8));
+                cardsWrap.add(createGalleryItem(item, project));
             }
+
+            galleryListPanel.add(cardsWrap);
         }
 
         paperPreviewPanel.setAvailableItems(galleryItems);
@@ -364,33 +359,32 @@ public class PrintPage extends JPanel {
         }
     }
 
-    private ProjectData getGallerySourceProject() {
-        ProjectData currentProject = appState.getCurrentProject();
-        if (currentProject == null) {
-            return null;
-        }
-
-        ProjectData savedSnapshot = appState.getSavedProjectById(currentProject.getProjectId());
-        return savedSnapshot == null ? currentProject : savedSnapshot;
-    }
-
-    private List<LayerEntry> getEligibleGalleryEntries(ProjectData project) {
-        List<LayerEntry> printableLayers = new ArrayList<>();
-        if (project == null) {
-            return printableLayers;
-        }
-
-        List<LayerData> layers = project.getLayers();
-        for (int i = 0; i < layers.size(); i++) {
-            LayerData layer = layers.get(i);
-            if (isEligibleGalleryLayer(layer)) {
-                printableLayers.add(new LayerEntry(i, layer));
+    private List<ProjectData> getPrintableSavedProjects() {
+        List<ProjectData> projects = new ArrayList<>();
+        for (ProjectData project : appState.getSavedProjects()) {
+            if (project != null && !getRenderableLayers(project).isEmpty()) {
+                projects.add(project);
             }
         }
-        return printableLayers;
+        return projects;
     }
 
-    private boolean isEligibleGalleryLayer(LayerData layer) {
+    private List<LayerData> getRenderableLayers(ProjectData project) {
+        List<LayerData> layers = new ArrayList<>();
+        if (project == null) {
+            return layers;
+        }
+
+        for (LayerData layer : project.getLayers()) {
+            if (!isRenderableLayer(layer)) {
+                continue;
+            }
+            layers.add(layer);
+        }
+        return layers;
+    }
+
+    private boolean isRenderableLayer(LayerData layer) {
         if (layer == null || !layer.isPrintable()) {
             return false;
         }
@@ -403,46 +397,51 @@ public class PrintPage extends JPanel {
         return layer.hasPhotoImage();
     }
 
-    private PaperPreviewPanel.PrintableItem createPrintableItem(ProjectData project, LayerData layer, int layerIndex) {
-        String itemId = buildPrintableItemId(project, layerIndex);
-        String label = getLayerDisplayName(layer);
-        BufferedImage previewImage = createCircleLayerPreview(layer, 220);
+    private PaperPreviewPanel.PrintableItem createPrintableItem(ProjectData project) {
+        String itemId = buildPrintableItemId(project);
+        String label = buildProjectCardTitle(project);
+        BufferedImage previewImage = createProjectPinPreview(project, 220);
         return new PaperPreviewPanel.PrintableItem(itemId, label, previewImage);
     }
 
-    private String buildPrintableItemId(ProjectData project, int layerIndex) {
+    private String buildPrintableItemId(ProjectData project) {
         String projectId = project == null || project.getProjectId() == null ? "project" : project.getProjectId();
-        return projectId + "::" + layerIndex;
+        return "project-" + projectId;
     }
 
-    private JPanel createGalleryItem(PaperPreviewPanel.PrintableItem itemData, LayerData layer) {
-        JPanel item = new JPanel(new BorderLayout(0, 8));
+    private JPanel createGalleryItem(PaperPreviewPanel.PrintableItem itemData, ProjectData project) {
+        JPanel item = new JPanel(new BorderLayout(0, 0));
         item.setBackground(Color.WHITE);
+        item.setPreferredSize(new Dimension(154, 154));
+        item.setMinimumSize(new Dimension(154, 154));
+        item.setMaximumSize(new Dimension(154, 154));
         item.setBorder(BorderFactory.createCompoundBorder(
             BorderFactory.createLineBorder(BORDER),
-            BorderFactory.createEmptyBorder(10, 10, 10, 10)
+            BorderFactory.createEmptyBorder(0, 0, 0, 0)
         ));
+
+        JPanel titleBar = new JPanel(new BorderLayout());
+        titleBar.setBackground(new Color(62, 66, 74));
+        titleBar.setBorder(BorderFactory.createEmptyBorder(4, 8, 4, 8));
 
         JLabel nameLabel = new JLabel(itemData.getDisplayName());
-        nameLabel.setFont(new Font("SansSerif", Font.BOLD, 13));
-        nameLabel.setForeground(TEXT_PRIMARY);
+        nameLabel.setFont(new Font("Monospaced", Font.PLAIN, 12));
+        nameLabel.setForeground(new Color(243, 246, 252));
+        titleBar.add(nameLabel, BorderLayout.CENTER);
 
-        JPanel previewBox = new JPanel(new BorderLayout());
+        JPanel previewBox = new JPanel(new BorderLayout(0, 4));
         previewBox.setOpaque(true);
         previewBox.setBackground(PREVIEW_BOX_BG);
-        previewBox.setBorder(BorderFactory.createCompoundBorder(
-            BorderFactory.createLineBorder(new Color(226, 232, 241)),
-            BorderFactory.createEmptyBorder(8, 8, 8, 8)
-        ));
+        previewBox.setBorder(BorderFactory.createEmptyBorder(10, 10, 8, 10));
         previewBox.add(createGalleryContentPreview(itemData), BorderLayout.CENTER);
 
-        JLabel detailsLabel = new JLabel(buildLayerDetails(layer));
+        JLabel detailsLabel = new JLabel(resolveProjectButtonSizeText(project.getButtonDiameterMm()), SwingConstants.CENTER);
         detailsLabel.setFont(new Font("SansSerif", Font.PLAIN, 12));
         detailsLabel.setForeground(TEXT_SECONDARY);
+        previewBox.add(detailsLabel, BorderLayout.SOUTH);
 
-        item.add(nameLabel, BorderLayout.NORTH);
+        item.add(titleBar, BorderLayout.NORTH);
         item.add(previewBox, BorderLayout.CENTER);
-        item.add(detailsLabel, BorderLayout.SOUTH);
 
         installGalleryDrag(item, itemData.getItemId());
 
@@ -456,7 +455,7 @@ public class PrintPage extends JPanel {
 
         BufferedImage image = item.getPreviewImage();
         if (image != null) {
-            previewLabel.setIcon(new ImageIcon(createScaledPreviewImage(image, 92)));
+            previewLabel.setIcon(new ImageIcon(createScaledPreviewImage(image, 72)));
         } else {
             previewLabel.setText(item.getDisplayName());
             previewLabel.setForeground(TEXT_SECONDARY);
@@ -496,7 +495,7 @@ public class PrintPage extends JPanel {
         }
     }
 
-    private BufferedImage createCircleLayerPreview(LayerData layer, int size) {
+    private BufferedImage createProjectPinPreview(ProjectData project, int size) {
         int dimension = Math.max(96, size);
         BufferedImage image = new BufferedImage(dimension, dimension, BufferedImage.TYPE_INT_ARGB);
         Graphics2D g2 = image.createGraphics();
@@ -511,19 +510,24 @@ public class PrintPage extends JPanel {
 
         Ellipse2D clip = new Ellipse2D.Double(x, y, diameter, diameter);
 
-        g2.setColor(new Color(247, 249, 253));
+        Color background = project != null && project.getButtonBackgroundColor() != null
+            ? project.getButtonBackgroundColor()
+            : new Color(247, 249, 253);
+        g2.setColor(background);
         g2.fill(clip);
 
         Shape oldClip = g2.getClip();
         g2.setClip(clip);
 
-        float opacity = Math.max(0.0f, Math.min(1.0f, layer.getOpacity()));
-        g2.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, opacity));
-
-        if (layer.isTextLayer()) {
-            drawTextLayerPreview(g2, layer, x, y, diameter);
-        } else {
-            drawPhotoLayerPreview(g2, layer, x, y, diameter);
+        List<LayerData> layers = getRenderableLayers(project);
+        for (LayerData layer : layers) {
+            float opacity = Math.max(0.0f, Math.min(1.0f, layer.getOpacity()));
+            g2.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, opacity));
+            if (layer.isTextLayer()) {
+                drawTextLayerPreview(g2, layer, x, y, diameter);
+            } else {
+                drawPhotoLayerPreview(g2, layer, x, y, diameter);
+            }
         }
 
         g2.setClip(oldClip);
@@ -623,6 +627,27 @@ public class PrintPage extends JPanel {
             return "Untitled Project";
         }
         return project.getProjectName().trim();
+    }
+
+    private String buildProjectCardTitle(ProjectData project) {
+        String baseName = getDisplayProjectName(project).replace(' ', '_');
+        if (baseName.length() > 16) {
+            baseName = baseName.substring(0, 16);
+        }
+        return baseName + "_" + resolveProjectButtonSizeText(project.getButtonDiameterMm());
+    }
+
+    private String resolveProjectButtonSizeText(double diameterMm) {
+        ButtonSizeOption bestMatch = BUTTON_SIZE_OPTIONS[0];
+        double bestDiff = Double.MAX_VALUE;
+        for (ButtonSizeOption option : BUTTON_SIZE_OPTIONS) {
+            double diff = Math.abs(option.toMillimeters() - diameterMm);
+            if (diff < bestDiff) {
+                bestDiff = diff;
+                bestMatch = option;
+            }
+        }
+        return bestMatch.displayLabel;
     }
 
     private PaperSizeOption getSelectedPaperOption() {
