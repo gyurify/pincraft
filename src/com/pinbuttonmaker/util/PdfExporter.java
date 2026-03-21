@@ -1,18 +1,35 @@
 package com.pinbuttonmaker.util;
 
+import java.awt.BasicStroke;
 import java.awt.Color;
+import java.awt.Graphics2D;
+import java.awt.RenderingHints;
+import java.awt.Shape;
+import java.awt.Stroke;
+import java.awt.geom.Ellipse2D;
 import java.awt.image.BufferedImage;
+import java.io.ByteArrayOutputStream;
 import java.io.File;
+import java.io.FileOutputStream;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
+import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
+
+import javax.imageio.ImageIO;
 
 import com.pinbuttonmaker.ui.components.PaperPreviewPanel;
 
 public final class PdfExporter {
     private static final double POINTS_PER_INCH = 72.0;
     private static final double KAPPA = 0.5522847498307936;
+
+    private static final double A4_WIDTH_POINTS = 595.2756;
+    private static final double A4_HEIGHT_POINTS = 841.8898;
+    private static final int FALLBACK_RENDER_DPI = 300;
 
     private PdfExporter() {
         // Utility class.
@@ -31,6 +48,14 @@ public final class PdfExporter {
             throw new IllegalStateException("Unable to create output directory.");
         }
 
+        try {
+            exportWithPdfBoxReflective(outputFile, snapshot);
+        } catch (ClassNotFoundException | NoClassDefFoundError missingPdfBox) {
+            exportWithInternalWriter(outputFile, snapshot);
+        }
+    }
+
+    private static void exportWithPdfBoxReflective(File outputFile, PaperPreviewPanel.ExportSnapshot snapshot) throws Exception {
         Object document = null;
         Object contentStream = null;
 
@@ -111,14 +136,189 @@ public final class PdfExporter {
 
             setLineDashPatternMethod.invoke(contentStream, new float[] {}, 0.0f);
             savePdf(document, outputFile);
-        } catch (ClassNotFoundException classNotFoundException) {
-            throw new IllegalStateException(
-                "Apache PDFBox is not available. Add pdfbox and pdfbox-io jars to the classpath before exporting."
-            );
         } finally {
             closeQuietly(contentStream);
             closeQuietly(document);
         }
+    }
+
+    private static void exportWithInternalWriter(File outputFile, PaperPreviewPanel.ExportSnapshot snapshot) throws Exception {
+        BufferedImage rendered = renderSnapshotToImage(snapshot, FALLBACK_RENDER_DPI);
+        byte[] jpegBytes = encodeJpeg(rendered);
+
+        double paperWidthPoints = snapshot.getPaperWidthInches() * POINTS_PER_INCH;
+        double paperHeightPoints = snapshot.getPaperHeightInches() * POINTS_PER_INCH;
+        double scale = Math.min(A4_WIDTH_POINTS / paperWidthPoints, A4_HEIGHT_POINTS / paperHeightPoints);
+
+        double drawWidthPoints = paperWidthPoints * scale;
+        double drawHeightPoints = paperHeightPoints * scale;
+        double offsetXPoints = (A4_WIDTH_POINTS - drawWidthPoints) / 2.0;
+        double offsetYPoints = (A4_HEIGHT_POINTS - drawHeightPoints) / 2.0;
+
+        writeSingleImagePdf(
+            outputFile,
+            jpegBytes,
+            rendered.getWidth(),
+            rendered.getHeight(),
+            drawWidthPoints,
+            drawHeightPoints,
+            offsetXPoints,
+            offsetYPoints
+        );
+    }
+
+    private static BufferedImage renderSnapshotToImage(PaperPreviewPanel.ExportSnapshot snapshot, int dpi) {
+        int width = Math.max(1, (int) Math.round(snapshot.getPaperWidthInches() * dpi));
+        int height = Math.max(1, (int) Math.round(snapshot.getPaperHeightInches() * dpi));
+
+        BufferedImage canvas = new BufferedImage(width, height, BufferedImage.TYPE_INT_RGB);
+        Graphics2D g2 = canvas.createGraphics();
+        g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+        g2.setRenderingHint(RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_QUALITY);
+        g2.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BILINEAR);
+        g2.setColor(Color.WHITE);
+        g2.fillRect(0, 0, width, height);
+
+        Stroke cutLineStroke = new BasicStroke(2.0f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND, 1f, new float[] {8f, 6f}, 0f);
+        for (PaperPreviewPanel.PlacedSlot slot : snapshot.getSlots()) {
+            double diameterPx = slot.getDiameterInches() * dpi;
+            double xPx = slot.getXInches() * dpi;
+            double yPx = slot.getYInches() * dpi;
+
+            Ellipse2D circle = new Ellipse2D.Double(xPx, yPx, diameterPx, diameterPx);
+            BufferedImage preview = slot.getPreviewImage();
+            if (preview != null) {
+                drawPreviewIntoCircle(g2, preview, circle);
+            }
+
+            if (snapshot.isShowCutLines()) {
+                Stroke oldStroke = g2.getStroke();
+                g2.setStroke(cutLineStroke);
+                g2.setColor(new Color(90, 128, 184));
+                g2.draw(circle);
+                g2.setStroke(oldStroke);
+            }
+        }
+
+        g2.dispose();
+        return canvas;
+    }
+
+    private static void drawPreviewIntoCircle(Graphics2D g2, BufferedImage preview, Ellipse2D circle) {
+        Shape oldClip = g2.getClip();
+        g2.clip(circle);
+
+        double targetDiameter = circle.getWidth();
+        double scale = Math.max(targetDiameter / Math.max(1, preview.getWidth()), targetDiameter / Math.max(1, preview.getHeight()));
+        int drawWidth = Math.max(1, (int) Math.round(preview.getWidth() * scale));
+        int drawHeight = Math.max(1, (int) Math.round(preview.getHeight() * scale));
+        int drawX = (int) Math.round(circle.getX() + (targetDiameter - drawWidth) / 2.0);
+        int drawY = (int) Math.round(circle.getY() + (targetDiameter - drawHeight) / 2.0);
+
+        g2.drawImage(preview, drawX, drawY, drawWidth, drawHeight, null);
+        g2.setClip(oldClip);
+    }
+
+    private static byte[] encodeJpeg(BufferedImage sourceImage) throws Exception {
+        BufferedImage rgb = ensureOpaquePreview(sourceImage);
+        ByteArrayOutputStream output = new ByteArrayOutputStream();
+        boolean written = ImageIO.write(rgb, "jpg", output);
+        if (!written) {
+            throw new IllegalStateException("JPEG encoder is unavailable for fallback PDF export.");
+        }
+        return output.toByteArray();
+    }
+
+    private static void writeSingleImagePdf(
+        File outputFile,
+        byte[] jpegBytes,
+        int imageWidth,
+        int imageHeight,
+        double drawWidthPoints,
+        double drawHeightPoints,
+        double offsetXPoints,
+        double offsetYPoints
+    ) throws Exception {
+        ByteArrayOutputStream pdf = new ByteArrayOutputStream(Math.max(4096, jpegBytes.length + 2048));
+        List<Integer> offsets = new ArrayList<>();
+
+        writeAscii(pdf, "%PDF-1.4\n");
+        writeAscii(pdf, "%\u00E2\u00E3\u00CF\u00D3\n");
+
+        offsets.add(pdf.size());
+        writeAscii(pdf, "1 0 obj\n");
+        writeAscii(pdf, "<< /Type /Catalog /Pages 2 0 R >>\n");
+        writeAscii(pdf, "endobj\n");
+
+        offsets.add(pdf.size());
+        writeAscii(pdf, "2 0 obj\n");
+        writeAscii(pdf, "<< /Type /Pages /Count 1 /Kids [3 0 R] >>\n");
+        writeAscii(pdf, "endobj\n");
+
+        offsets.add(pdf.size());
+        writeAscii(pdf, "3 0 obj\n");
+        writeAscii(pdf, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ");
+        writeAscii(pdf, formatNumber(A4_WIDTH_POINTS));
+        writeAscii(pdf, " ");
+        writeAscii(pdf, formatNumber(A4_HEIGHT_POINTS));
+        writeAscii(pdf, "] ");
+        writeAscii(pdf, "/Resources << /XObject << /Im0 4 0 R >> >> ");
+        writeAscii(pdf, "/Contents 5 0 R >>\n");
+        writeAscii(pdf, "endobj\n");
+
+        offsets.add(pdf.size());
+        writeAscii(pdf, "4 0 obj\n");
+        writeAscii(pdf, "<< /Type /XObject /Subtype /Image ");
+        writeAscii(pdf, "/Width " + imageWidth + " /Height " + imageHeight + " ");
+        writeAscii(pdf, "/ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode ");
+        writeAscii(pdf, "/Length " + jpegBytes.length + " >>\n");
+        writeAscii(pdf, "stream\n");
+        pdf.write(jpegBytes);
+        writeAscii(pdf, "\nendstream\n");
+        writeAscii(pdf, "endobj\n");
+
+        String content = "q "
+            + formatNumber(drawWidthPoints) + " 0 0 "
+            + formatNumber(drawHeightPoints) + " "
+            + formatNumber(offsetXPoints) + " "
+            + formatNumber(offsetYPoints)
+            + " cm /Im0 Do Q\n";
+        byte[] contentBytes = content.getBytes(StandardCharsets.ISO_8859_1);
+
+        offsets.add(pdf.size());
+        writeAscii(pdf, "5 0 obj\n");
+        writeAscii(pdf, "<< /Length " + contentBytes.length + " >>\n");
+        writeAscii(pdf, "stream\n");
+        pdf.write(contentBytes);
+        writeAscii(pdf, "endstream\n");
+        writeAscii(pdf, "endobj\n");
+
+        int xrefOffset = pdf.size();
+        int objectCount = offsets.size() + 1;
+        writeAscii(pdf, "xref\n");
+        writeAscii(pdf, "0 " + objectCount + "\n");
+        writeAscii(pdf, "0000000000 65535 f \n");
+        for (int offset : offsets) {
+            writeAscii(pdf, String.format(Locale.US, "%010d 00000 n \n", offset));
+        }
+
+        writeAscii(pdf, "trailer\n");
+        writeAscii(pdf, "<< /Size " + objectCount + " /Root 1 0 R >>\n");
+        writeAscii(pdf, "startxref\n");
+        writeAscii(pdf, xrefOffset + "\n");
+        writeAscii(pdf, "%%EOF\n");
+
+        try (FileOutputStream output = new FileOutputStream(outputFile)) {
+            pdf.writeTo(output);
+        }
+    }
+
+    private static void writeAscii(ByteArrayOutputStream output, String text) throws Exception {
+        output.write(text.getBytes(StandardCharsets.ISO_8859_1));
+    }
+
+    private static String formatNumber(double value) {
+        return String.format(Locale.US, "%.4f", value);
     }
 
     private static Method resolveDrawImageMethod(Class<?> pdPageContentStreamClass) throws Exception {
@@ -150,8 +350,8 @@ public final class PdfExporter {
             return null;
         }
 
-        BufferedImage copy = new BufferedImage(image.getWidth(), image.getHeight(), BufferedImage.TYPE_INT_ARGB);
-        java.awt.Graphics2D g2 = copy.createGraphics();
+        BufferedImage copy = new BufferedImage(image.getWidth(), image.getHeight(), BufferedImage.TYPE_INT_RGB);
+        Graphics2D g2 = copy.createGraphics();
         g2.setColor(Color.WHITE);
         g2.fillRect(0, 0, image.getWidth(), image.getHeight());
         g2.drawImage(image, 0, 0, null);

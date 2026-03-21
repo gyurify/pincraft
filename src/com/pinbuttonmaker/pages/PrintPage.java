@@ -304,9 +304,9 @@ public class PrintPage extends JPanel {
         galleryListPanel.removeAll();
         galleryItems.clear();
 
-        List<ProjectData> savedDesigns = getPrintableSavedProjects();
-        if (savedDesigns.isEmpty()) {
-            JLabel empty = new JLabel("No saved designs yet. Save a design in Editor, then drag it here.");
+        List<ProjectData> printableProjects = getPrintableProjectsForGallery();
+        if (printableProjects.isEmpty()) {
+            JLabel empty = new JLabel("No printable designs yet. Add visible text or photo layers in Editor and save.");
             empty.setFont(new Font("SansSerif", Font.PLAIN, 13));
             empty.setForeground(TEXT_SECONDARY);
             empty.setBorder(BorderFactory.createEmptyBorder(8, 4, 8, 4));
@@ -315,7 +315,7 @@ public class PrintPage extends JPanel {
             JPanel cardsWrap = new JPanel(new FlowLayout(FlowLayout.LEFT, 10, 8));
             cardsWrap.setOpaque(false);
 
-            for (ProjectData project : savedDesigns) {
+            for (ProjectData project : printableProjects) {
                 PaperPreviewPanel.PrintableItem item = createPrintableItem(project);
                 galleryItems.add(item);
                 cardsWrap.add(createGalleryItem(item, project));
@@ -359,13 +359,26 @@ public class PrintPage extends JPanel {
         }
     }
 
-    private List<ProjectData> getPrintableSavedProjects() {
+    private List<ProjectData> getPrintableProjectsForGallery() {
         List<ProjectData> projects = new ArrayList<>();
-        for (ProjectData project : appState.getSavedProjects()) {
-            if (project != null && !getRenderableLayers(project).isEmpty()) {
-                projects.add(project);
-            }
+
+        ProjectData current = appState.getCurrentProject();
+        if (current != null && !getRenderableLayers(current).isEmpty()) {
+            projects.add(current);
         }
+
+        for (ProjectData saved : appState.getSavedProjects()) {
+            if (saved == null || getRenderableLayers(saved).isEmpty()) {
+                continue;
+            }
+
+            if (current != null && current.getProjectId() != null && current.getProjectId().equals(saved.getProjectId())) {
+                continue;
+            }
+
+            projects.add(saved);
+        }
+
         return projects;
     }
 
@@ -586,40 +599,12 @@ public class PrintPage extends JPanel {
         return image.getScaledInstance(scaledWidth, scaledHeight, Image.SCALE_SMOOTH);
     }
 
-    private String getLayerDisplayName(LayerData layer) {
-        if (layer == null) {
-            return "Layer";
-        }
-
-        String layerName = layer.getLayerName();
-        if (layerName == null || layerName.trim().isEmpty()) {
-            return layer.isTextLayer() ? "Text Layer" : "Photo Layer";
-        }
-        return layerName.trim();
-    }
-
     private String getLayerTextPreview(LayerData layer) {
         String text = layer.getTextContent();
         if (text == null || text.trim().isEmpty()) {
             return "(Empty text)";
         }
         return text.trim();
-    }
-
-    private String buildLayerDetails(LayerData layer) {
-        String kindText = layer.isTextLayer() ? "Text" : "Photo";
-        String opacityText = layer.getTransparencyPercent() + "% opacity";
-
-        if (layer.isTextLayer()) {
-            return kindText + " | " + opacityText + " | " + layer.getFontFamily();
-        }
-
-        BufferedImage image = layer.getPhotoImage();
-        if (image != null) {
-            return kindText + " | " + opacityText + " | " + image.getWidth() + " x " + image.getHeight();
-        }
-
-        return kindText + " | " + opacityText;
     }
 
     private String getDisplayProjectName(ProjectData project) {
@@ -658,16 +643,6 @@ public class PrintPage extends JPanel {
     private ButtonSizeOption getSelectedButtonOption() {
         ButtonSizeOption selected = (ButtonSizeOption) buttonSizeCombo.getSelectedItem();
         return selected == null ? BUTTON_SIZE_OPTIONS[4] : selected;
-    }
-
-    private static final class LayerEntry {
-        private final int layerIndex;
-        private final LayerData layer;
-
-        private LayerEntry(int layerIndex, LayerData layer) {
-            this.layerIndex = layerIndex;
-            this.layer = layer;
-        }
     }
 
     private static final class GalleryItemTransferHandler extends TransferHandler {

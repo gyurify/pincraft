@@ -992,14 +992,13 @@ public class EditorPage extends JPanel {
     }
 
     private void uploadPhotoForActiveLayer() {
-        LayerData activeLayer = getActiveLayer();
-        if (!isPhotoLayer(activeLayer)) {
-            JOptionPane.showMessageDialog(this, "Select a Photo layer first.", "Upload Image", JOptionPane.INFORMATION_MESSAGE);
+        LayerData photoLayer = ensureActivePhotoLayerForImport();
+        if (!isPhotoLayer(photoLayer)) {
+            JOptionPane.showMessageDialog(this, "Unable to prepare a Photo layer for upload.", "Upload Image", JOptionPane.ERROR_MESSAGE);
             return;
         }
 
         JFileChooser chooser = createImageChooserWithPreview();
-
         int choice = chooser.showOpenDialog(this);
         if (choice != JFileChooser.APPROVE_OPTION) {
             return;
@@ -1012,7 +1011,7 @@ public class EditorPage extends JPanel {
                 JOptionPane.showMessageDialog(this, "The selected file is not a supported image.", "Upload Image", JOptionPane.ERROR_MESSAGE);
                 return;
             }
-            applyImageToPhotoLayer(activeLayer, image);
+            applyImageToPhotoLayer(photoLayer, image);
         } catch (IOException exception) {
             JOptionPane.showMessageDialog(this, "Unable to read image: " + exception.getMessage(), "Upload Image", JOptionPane.ERROR_MESSAGE);
         }
@@ -1137,12 +1136,32 @@ public class EditorPage extends JPanel {
     }
 
     private JFileChooser createImageChooserWithPreview() {
-        JFileChooser chooser = new JFileChooser(FileSystemView.getFileSystemView().getDefaultDirectory());
+        JFileChooser chooser = new JFileChooser(resolveInitialImageDirectory());
         chooser.setDialogTitle("Select Photo");
         chooser.setFileFilter(new FileNameExtensionFilter("Image files", "png", "jpg", "jpeg", "bmp", "gif", "webp"));
         chooser.setAcceptAllFileFilterUsed(false);
+        chooser.setPreferredSize(new Dimension(900, 580));
         chooser.setAccessory(new ImageChooserPreview(chooser));
         return chooser;
+    }
+
+    private File resolveInitialImageDirectory() {
+        File picturesFolder = new File(System.getProperty("user.home"), "Pictures");
+        if (picturesFolder.isDirectory()) {
+            return picturesFolder;
+        }
+
+        File homeDirectory = FileSystemView.getFileSystemView().getHomeDirectory();
+        if (homeDirectory != null && homeDirectory.isDirectory()) {
+            return homeDirectory;
+        }
+
+        File defaultDirectory = FileSystemView.getFileSystemView().getDefaultDirectory();
+        if (defaultDirectory != null && defaultDirectory.isDirectory()) {
+            return defaultDirectory;
+        }
+
+        return new File(".");
     }
 
     private PhotoProcessResult maybeCropImage(BufferedImage sourceImage) {
@@ -1298,15 +1317,33 @@ public class EditorPage extends JPanel {
                     return;
                 }
 
-                Image scaled = image.getScaledInstance(PREVIEW_WIDTH, PREVIEW_HEIGHT, Image.SCALE_SMOOTH);
+                BufferedImage scaled = scaleImageToFit(image, PREVIEW_WIDTH, PREVIEW_HEIGHT);
                 previewLabel.setIcon(new ImageIcon(scaled));
                 previewLabel.setText("");
-                captionLabel.setText(selected.getName());
+                captionLabel.setText(selected.getName() + "  (" + image.getWidth() + "x" + image.getHeight() + ")");
             } catch (IOException exception) {
                 previewLabel.setIcon(null);
                 previewLabel.setText("Preview error");
                 captionLabel.setText(selected.getName());
             }
+        }
+
+        private BufferedImage scaleImageToFit(BufferedImage source, int maxWidth, int maxHeight) {
+            int srcWidth = Math.max(1, source.getWidth());
+            int srcHeight = Math.max(1, source.getHeight());
+            double scale = Math.min((double) maxWidth / srcWidth, (double) maxHeight / srcHeight);
+            scale = Math.max(0.01, Math.min(1.0, scale));
+
+            int targetWidth = Math.max(1, (int) Math.round(srcWidth * scale));
+            int targetHeight = Math.max(1, (int) Math.round(srcHeight * scale));
+
+            BufferedImage scaled = new BufferedImage(targetWidth, targetHeight, BufferedImage.TYPE_INT_ARGB);
+            Graphics2D g2 = scaled.createGraphics();
+            g2.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BILINEAR);
+            g2.setRenderingHint(RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_QUALITY);
+            g2.drawImage(source, 0, 0, targetWidth, targetHeight, null);
+            g2.dispose();
+            return scaled;
         }
     }
 
