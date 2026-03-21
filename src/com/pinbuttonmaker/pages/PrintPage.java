@@ -48,6 +48,8 @@ import com.pinbuttonmaker.util.PdfExporter;
 import com.pinbuttonmaker.util.Utils;
 
 public class PrintPage extends JPanel {
+    private static final int PRINTABLE_PREVIEW_RESOLUTION = 720;
+
     private static final Color PAGE_BG = new Color(243, 246, 251);
     private static final Color PANEL_BG = new Color(250, 252, 255);
     private static final Color BORDER = new Color(212, 220, 233);
@@ -56,7 +58,7 @@ public class PrintPage extends JPanel {
     private static final Color PREVIEW_BOX_BG = new Color(245, 248, 252);
 
     private static final PaperSizeOption[] PAPER_SIZE_OPTIONS = {
-        new PaperSizeOption("A4", "210 x 297 mm", 8.27, 11.69),
+        new PaperSizeOption("A4", "210 x 297 mm", 210.0 / 25.4, 297.0 / 25.4),
         new PaperSizeOption("Letter", "216 x 279 mm", 8.50, 11.00)
     };
 
@@ -413,7 +415,7 @@ public class PrintPage extends JPanel {
     private PaperPreviewPanel.PrintableItem createPrintableItem(ProjectData project) {
         String itemId = buildPrintableItemId(project);
         String label = buildProjectCardTitle(project);
-        BufferedImage previewImage = createProjectPinPreview(project, 220);
+        BufferedImage previewImage = createProjectPinPreview(project, PRINTABLE_PREVIEW_RESOLUTION);
         return new PaperPreviewPanel.PrintableItem(itemId, label, previewImage);
     }
 
@@ -515,11 +517,12 @@ public class PrintPage extends JPanel {
 
         g2.setRenderingHint(java.awt.RenderingHints.KEY_ANTIALIASING, java.awt.RenderingHints.VALUE_ANTIALIAS_ON);
         g2.setRenderingHint(java.awt.RenderingHints.KEY_TEXT_ANTIALIASING, java.awt.RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
+        g2.setRenderingHint(java.awt.RenderingHints.KEY_RENDERING, java.awt.RenderingHints.VALUE_RENDER_QUALITY);
+        g2.setRenderingHint(java.awt.RenderingHints.KEY_INTERPOLATION, java.awt.RenderingHints.VALUE_INTERPOLATION_BILINEAR);
 
-        int padding = Math.max(8, dimension / 16);
-        int diameter = dimension - (padding * 2);
-        int x = padding;
-        int y = padding;
+        int x = 0;
+        int y = 0;
+        int diameter = dimension;
 
         Ellipse2D clip = new Ellipse2D.Double(x, y, diameter, diameter);
 
@@ -544,11 +547,6 @@ public class PrintPage extends JPanel {
         }
 
         g2.setClip(oldClip);
-
-        g2.setComposite(AlphaComposite.SrcOver);
-        g2.setColor(new Color(188, 200, 219));
-        g2.setStroke(new java.awt.BasicStroke(2f));
-        g2.draw(clip);
 
         g2.dispose();
         return image;
