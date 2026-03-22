@@ -5,16 +5,22 @@ import java.util.Collections;
 import java.util.List;
 
 import com.pinbuttonmaker.data.ProjectData;
+import com.pinbuttonmaker.db.DatabaseManager;
+import com.pinbuttonmaker.db.UserAuthService;
 
 public class AppState {
     private String currentUser;
     private ProjectData currentProject;
     private final List<ProjectData> savedProjects;
+    private final DatabaseManager databaseManager;
+    private final UserAuthService userAuthService;
 
     public AppState() {
         this.currentUser = "Guest";
         this.currentProject = new ProjectData("Untitled Project");
         this.savedProjects = new ArrayList<>();
+        this.databaseManager = new DatabaseManager();
+        this.userAuthService = new UserAuthService(databaseManager);
     }
 
     public String getCurrentUser() {
@@ -23,6 +29,14 @@ public class AppState {
 
     public void setCurrentUser(String currentUser) {
         this.currentUser = currentUser;
+    }
+
+    public DatabaseManager getDatabaseManager() {
+        return databaseManager;
+    }
+
+    public UserAuthService getUserAuthService() {
+        return userAuthService;
     }
 
     public ProjectData getCurrentProject() {

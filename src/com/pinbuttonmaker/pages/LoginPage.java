@@ -24,6 +24,7 @@ import javax.swing.JLabel;
 import javax.swing.JPanel;
 import javax.swing.JPasswordField;
 import javax.swing.JTextField;
+import javax.swing.JOptionPane;
 import javax.swing.SwingConstants;
 import javax.swing.SwingUtilities;
 import javax.swing.border.EmptyBorder;
@@ -32,6 +33,7 @@ import javax.swing.event.DocumentListener;
 
 import com.pinbuttonmaker.AppRouter;
 import com.pinbuttonmaker.AppState;
+import com.pinbuttonmaker.db.UserAuthService;
 import com.pinbuttonmaker.ui.UIStyles;
 import com.pinbuttonmaker.ui.components.CustomButton;
 import com.pinbuttonmaker.util.Utils;
@@ -567,14 +569,34 @@ public class LoginPage extends JPanel {
         return Utils.normalizeOrDefault(emailField.getText(), "");
     }
 
+    private String readPasswordValue() {
+        if (passwordPlaceholderActive) {
+            return "";
+        }
+        return new String(passwordField.getPassword()).trim();
+    }
+
     private void handleEmailAuth() {
         String email = readEmailValue();
-        if (email.isEmpty()) {
-            email = registerMode ? "new.user@pincraft.local" : "guest@pincraft.local";
+        String password = readPasswordValue();
+        UserAuthService authService = appState.getUserAuthService();
+
+        UserAuthService.AuthResult result = registerMode
+            ? authService.register(email, password)
+            : authService.login(email, password);
+
+        if (!result.isSuccess()) {
+            JOptionPane.showMessageDialog(
+                this,
+                result.getMessage(),
+                registerMode ? "Register" : "Login",
+                JOptionPane.ERROR_MESSAGE
+            );
+            return;
         }
 
-        appState.setCurrentUser(email);
-        Utils.showInfo(this, registerMode ? "Registered (mock): " + email : "Signed in (mock): " + email);
+        appState.setCurrentUser(result.getUserEmail());
+        Utils.showInfo(this, registerMode ? "Registered: " + result.getUserEmail() : "Signed in: " + result.getUserEmail());
         router.showHome();
     }
 
@@ -685,6 +707,5 @@ public class LoginPage extends JPanel {
         }
     }
 }
-
 
 

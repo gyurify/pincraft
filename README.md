@@ -1,5 +1,19 @@
 # pincraft
 
+## JDBC Database
+
+The app now includes a JDBC-backed SQLite database for login and register.
+
+- JDBC driver: `lib/sqlite-jdbc-3.51.0.0.jar`
+- Database file: `data/pincraft.db`
+- Auth table: `users`
+
+Run with the SQLite driver on the classpath:
+
+```bash
+java -cp "out/build;lib/*" com.pinbuttonmaker.Main
+```
+
 ## PDF Export Dependency (Apache PDFBox)
 
 PDF export uses Apache PDFBox.
