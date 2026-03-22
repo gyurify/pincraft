@@ -12,21 +12,25 @@ import java.awt.Graphics2D;
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
 import java.awt.GridLayout;
+import java.awt.Image;
 import java.awt.Insets;
 import java.awt.RenderingHints;
 import java.awt.event.ComponentAdapter;
 import java.awt.event.ComponentEvent;
 import java.awt.event.HierarchyEvent;
+import java.awt.image.BufferedImage;
 import java.util.List;
 
 import javax.swing.BorderFactory;
 import javax.swing.Box;
 import javax.swing.BoxLayout;
+import javax.swing.ImageIcon;
 import javax.swing.JButton;
 import javax.swing.JLabel;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
+import javax.swing.SwingConstants;
 import javax.swing.SwingUtilities;
 import javax.swing.border.EmptyBorder;
 import javax.swing.border.MatteBorder;
@@ -35,6 +39,7 @@ import com.pinbuttonmaker.AppRouter;
 import com.pinbuttonmaker.AppState;
 import com.pinbuttonmaker.data.ProjectData;
 import com.pinbuttonmaker.db.ProjectStorageService;
+import com.pinbuttonmaker.ui.components.ButtonPreviewPanel;
 import com.pinbuttonmaker.ui.components.CustomButton;
 
 public class HomePage extends JPanel {
@@ -329,12 +334,14 @@ public class HomePage extends JPanel {
         RoundedPanel card = new RoundedPanel(14, CARD_BG, CARD_BORDER);
         card.setLayout(new GridBagLayout());
         card.setBorder(new EmptyBorder(12, 12, 12, 12));
-        card.setPreferredSize(new Dimension(220, 140));
+        card.setPreferredSize(new Dimension(220, 246));
 
         GridBagConstraints constraints = new GridBagConstraints();
         constraints.gridx = 0;
         constraints.weightx = 1.0;
         constraints.fill = GridBagConstraints.HORIZONTAL;
+
+        JPanel previewBox = createProjectPreviewBox(project);
 
         JLabel title = new JLabel(project.getProjectName());
         title.setFont(new Font("SansSerif", Font.BOLD, 14));
@@ -369,18 +376,39 @@ public class HomePage extends JPanel {
         actions.add(removeButton);
 
         constraints.gridy = 0;
+        constraints.insets = new Insets(0, 0, 10, 0);
+        card.add(previewBox, constraints);
+
+        constraints.gridy = 1;
         constraints.insets = new Insets(0, 0, 6, 0);
         card.add(title, constraints);
 
-        constraints.gridy = 1;
+        constraints.gridy = 2;
         constraints.insets = new Insets(0, 0, 8, 0);
         card.add(details, constraints);
 
-        constraints.gridy = 2;
+        constraints.gridy = 3;
         constraints.insets = new Insets(0, 0, 0, 0);
         card.add(actions, constraints);
 
         return card;
+    }
+
+    private JPanel createProjectPreviewBox(ProjectData project) {
+        RoundedPanel previewBox = new RoundedPanel(12, new Color(247, 249, 253), new Color(229, 233, 241));
+        previewBox.setLayout(new GridBagLayout());
+        previewBox.setPreferredSize(new Dimension(180, 132));
+
+        JLabel previewLabel = new JLabel();
+        previewLabel.setHorizontalAlignment(SwingConstants.CENTER);
+        previewLabel.setVerticalAlignment(SwingConstants.CENTER);
+
+        BufferedImage previewImage = ButtonPreviewPanel.createPreviewImage(project, 120, false);
+        Image scaledImage = previewImage.getScaledInstance(108, 108, Image.SCALE_SMOOTH);
+        previewLabel.setIcon(new ImageIcon(scaledImage));
+
+        previewBox.add(previewLabel);
+        return previewBox;
     }
 
     private JButton createProjectActionButton(String text, Color color) {

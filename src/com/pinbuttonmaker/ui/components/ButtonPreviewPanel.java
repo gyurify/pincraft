@@ -49,6 +49,7 @@ public class ButtonPreviewPanel extends JPanel {
     private int activeLayerIndex = -1;
 
     private LayerSelectionListener layerSelectionListener;
+    private boolean showGuides;
 
     private boolean draggingLayer;
     private int lastDragX;
@@ -63,6 +64,7 @@ public class ButtonPreviewPanel extends JPanel {
         this.draggingLayer = false;
         this.snapToCenterX = false;
         this.snapToCenterY = false;
+        this.showGuides = true;
 
         MouseAdapter dragAdapter = new MouseAdapter() {
             @Override
@@ -168,6 +170,23 @@ public class ButtonPreviewPanel extends JPanel {
         addMouseMotionListener(dragAdapter);
     }
 
+    public static BufferedImage createPreviewImage(ProjectData projectData, int size, boolean showGuides) {
+        int dimension = Math.max(96, size);
+        ButtonPreviewPanel panel = new ButtonPreviewPanel();
+        panel.showGuides = showGuides;
+        panel.setProjectData(projectData == null ? null : projectData.copy());
+        panel.setActiveLayerIndex(-1);
+        panel.setSize(dimension, dimension);
+        panel.setPreferredSize(new Dimension(dimension, dimension));
+        panel.doLayout();
+
+        BufferedImage image = new BufferedImage(dimension, dimension, BufferedImage.TYPE_INT_ARGB);
+        Graphics2D graphics = image.createGraphics();
+        panel.paint(graphics);
+        graphics.dispose();
+        return image;
+    }
+
     public void setProjectData(ProjectData projectData) {
         this.projectData = projectData;
         repaint();
@@ -218,15 +237,17 @@ public class ButtonPreviewPanel extends JPanel {
         g2.setStroke(new BasicStroke(2f));
         g2.drawOval(buttonX, buttonY, geometry.buttonDiameter, geometry.buttonDiameter);
 
-        g2.setColor(BLEED_LINE_COLOR);
-        g2.setStroke(new BasicStroke(2f, BasicStroke.CAP_BUTT, BasicStroke.JOIN_ROUND, 1f, new float[] {8f, 7f}, 0f));
-        g2.drawOval(bleedX, bleedY, geometry.bleedDiameter, geometry.bleedDiameter);
+        if (showGuides) {
+            g2.setColor(BLEED_LINE_COLOR);
+            g2.setStroke(new BasicStroke(2f, BasicStroke.CAP_BUTT, BasicStroke.JOIN_ROUND, 1f, new float[] {8f, 7f}, 0f));
+            g2.drawOval(bleedX, bleedY, geometry.bleedDiameter, geometry.bleedDiameter);
 
-        g2.setColor(SAFE_ZONE_COLOR);
-        g2.setStroke(new BasicStroke(2.25f));
-        g2.drawOval(safeX, safeY, geometry.safeDiameter, geometry.safeDiameter);
+            g2.setColor(SAFE_ZONE_COLOR);
+            g2.setStroke(new BasicStroke(2.25f));
+            g2.drawOval(safeX, safeY, geometry.safeDiameter, geometry.safeDiameter);
 
-        drawDragSnapGuides(g2, geometry, buttonX, buttonY);
+            drawDragSnapGuides(g2, geometry, buttonX, buttonY);
+        }
 
         g2.dispose();
     }
@@ -279,7 +300,7 @@ public class ButtonPreviewPanel extends JPanel {
         }
 
         LayerData activeLayer = getActiveLayer();
-        if (activeLayer != null) {
+        if (showGuides && activeLayer != null) {
             Graphics2D overlayGraphics = (Graphics2D) g2.create();
             applyLayerTransform(overlayGraphics, activeLayer, geometry.centerX, geometry.centerY);
             drawActiveLayerGuide(overlayGraphics, activeLayer, geometry, baseCurveRadius);
