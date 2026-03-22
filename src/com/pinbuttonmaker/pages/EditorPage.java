@@ -61,6 +61,7 @@ import com.pinbuttonmaker.AppRouter;
 import com.pinbuttonmaker.AppState;
 import com.pinbuttonmaker.data.LayerData;
 import com.pinbuttonmaker.data.ProjectData;
+import com.pinbuttonmaker.db.ProjectStorageService;
 import com.pinbuttonmaker.ui.components.ButtonPreviewPanel;
 import com.pinbuttonmaker.ui.dialogs.ImageCropDialog;
 
@@ -1200,22 +1201,41 @@ public class EditorPage extends JPanel {
             projectData.setProjectName("PinCraft Project " + (appState.getSavedProjects().size() + 1));
         }
 
-        appState.saveCurrentProject();
+        ProjectStorageService.StorageResult<Void> result = appState.saveCurrentProject();
+        if (!result.isSuccess()) {
+            JOptionPane.showMessageDialog(
+                this,
+                result.getMessage(),
+                "Save Project",
+                JOptionPane.ERROR_MESSAGE
+            );
+            return;
+        }
 
         JOptionPane.showMessageDialog(
             this,
-            "Project saved in memory.",
+            result.getMessage(),
             "Save Project",
             JOptionPane.INFORMATION_MESSAGE
         );
     }
 
     private void loadProjectFromMemory() {
+        if (!appState.isAuthenticated()) {
+            JOptionPane.showMessageDialog(
+                this,
+                "Sign in to load saved projects.",
+                "Load Project",
+                JOptionPane.INFORMATION_MESSAGE
+            );
+            return;
+        }
+
         List<ProjectData> savedProjects = appState.getSavedProjects();
         if (savedProjects.isEmpty()) {
             JOptionPane.showMessageDialog(
                 this,
-                "No saved projects available.",
+                "No saved projects available for this account.",
                 "Load Project",
                 JOptionPane.INFORMATION_MESSAGE
             );
@@ -1236,11 +1256,11 @@ public class EditorPage extends JPanel {
             return;
         }
 
-        ProjectData loaded = appState.loadProjectAsCurrent(selected.getProjectId());
-        if (loaded == null) {
+        ProjectStorageService.StorageResult<ProjectData> result = appState.loadProjectAsCurrent(selected.getProjectId());
+        if (!result.isSuccess()) {
             JOptionPane.showMessageDialog(
                 this,
-                "Unable to load the selected project.",
+                result.getMessage(),
                 "Load Project",
                 JOptionPane.ERROR_MESSAGE
             );
@@ -1251,7 +1271,7 @@ public class EditorPage extends JPanel {
 
         JOptionPane.showMessageDialog(
             this,
-            "Loaded: " + loaded.getProjectName(),
+            "Loaded: " + result.getData().getProjectName(),
             "Load Project",
             JOptionPane.INFORMATION_MESSAGE
         );

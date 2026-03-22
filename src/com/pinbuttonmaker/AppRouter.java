@@ -1,15 +1,17 @@
 package com.pinbuttonmaker;
 
+import java.awt.BorderLayout;
 import java.awt.CardLayout;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
+import javax.swing.JLabel;
 import javax.swing.JPanel;
+import javax.swing.SwingConstants;
 
 import com.pinbuttonmaker.pages.EditorPage;
 import com.pinbuttonmaker.pages.HomePage;
 import com.pinbuttonmaker.pages.LoginPage;
-import com.pinbuttonmaker.pages.PrintPage;
 import com.pinbuttonmaker.ui.components.FadablePanel;
 import com.pinbuttonmaker.util.FadeAnimator;
 
@@ -37,7 +39,28 @@ public class AppRouter {
         registerRoute(ROUTE_LOGIN, new LoginPage(this, appState));
         registerRoute(ROUTE_HOME, new HomePage(this, appState));
         registerRoute(ROUTE_EDITOR, new EditorPage(this, appState));
-        registerRoute(ROUTE_PRINT, new PrintPage(this, appState));
+        registerRoute(ROUTE_PRINT, createPrintPage());
+    }
+
+    private JPanel createPrintPage() {
+        try {
+            Class<?> printPageClass = Class.forName("com.pinbuttonmaker.pages.PrintPage");
+            Object instance = printPageClass
+                .getConstructor(AppRouter.class, AppState.class)
+                .newInstance(this, appState);
+
+            if (instance instanceof JPanel) {
+                return (JPanel) instance;
+            }
+        } catch (Exception exception) {
+            JPanel fallback = new JPanel(new BorderLayout());
+            fallback.add(new JLabel("Print page is unavailable in this build.", SwingConstants.CENTER), BorderLayout.CENTER);
+            return fallback;
+        }
+
+        JPanel fallback = new JPanel(new BorderLayout());
+        fallback.add(new JLabel("Print page is unavailable in this build.", SwingConstants.CENTER), BorderLayout.CENTER);
+        return fallback;
     }
 
     private void registerRoute(String route, JPanel content) {

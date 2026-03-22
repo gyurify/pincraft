@@ -26,7 +26,7 @@ public class DatabaseManager {
 
     private void initialize() {
         try {
-            Files.createDirectories(DATA_DIRECTORY);
+            Files.createDirectories(DATABASE_PATH.getParent());
             Class.forName(SQLITE_DRIVER);
 
             try (Connection connection = openConnection(); Statement statement = connection.createStatement()) {
@@ -38,6 +38,66 @@ public class DatabaseManager {
                         + "created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP"
                         + ")"
                 );
+
+                statement.executeUpdate(
+                    "CREATE TABLE IF NOT EXISTS password_reset_codes ("
+                        + "id INTEGER PRIMARY KEY AUTOINCREMENT, "
+                        + "user_id INTEGER NOT NULL, "
+                        + "code_hash TEXT NOT NULL, "
+                        + "expires_at TEXT NOT NULL, "
+                        + "created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, "
+                        + "FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE"
+                        + ")"
+                );
+
+                statement.executeUpdate(
+                    "CREATE TABLE IF NOT EXISTS projects ("
+                        + "id TEXT PRIMARY KEY, "
+                        + "user_id INTEGER NOT NULL, "
+                        + "name TEXT NOT NULL, "
+                        + "button_diameter_mm REAL NOT NULL, "
+                        + "background_argb INTEGER NOT NULL, "
+                        + "created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, "
+                        + "updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, "
+                        + "FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE"
+                        + ")"
+                );
+
+                statement.executeUpdate(
+                    "CREATE TABLE IF NOT EXISTS project_layers ("
+                        + "id INTEGER PRIMARY KEY AUTOINCREMENT, "
+                        + "project_id TEXT NOT NULL, "
+                        + "layer_order INTEGER NOT NULL, "
+                        + "layer_name TEXT NOT NULL, "
+                        + "layer_kind TEXT NOT NULL, "
+                        + "visible INTEGER NOT NULL, "
+                        + "text_content TEXT, "
+                        + "text_color_argb INTEGER, "
+                        + "font_family TEXT, "
+                        + "font_size INTEGER NOT NULL, "
+                        + "text_offset_x INTEGER NOT NULL, "
+                        + "text_offset_y INTEGER NOT NULL, "
+                        + "size_percent INTEGER NOT NULL, "
+                        + "rotation_degrees INTEGER NOT NULL, "
+                        + "stretch_percent INTEGER NOT NULL, "
+                        + "transparency_percent INTEGER NOT NULL, "
+                        + "bend_percent INTEGER NOT NULL, "
+                        + "photo_image BLOB, "
+                        + "photo_offset_x INTEGER NOT NULL, "
+                        + "photo_offset_y INTEGER NOT NULL, "
+                        + "photo_scale_percent INTEGER NOT NULL, "
+                        + "crop_applied INTEGER NOT NULL, "
+                        + "crop_x INTEGER NOT NULL, "
+                        + "crop_y INTEGER NOT NULL, "
+                        + "crop_width INTEGER NOT NULL, "
+                        + "crop_height INTEGER NOT NULL, "
+                        + "FOREIGN KEY(project_id) REFERENCES projects(id) ON DELETE CASCADE"
+                        + ")"
+                );
+
+                statement.executeUpdate("CREATE INDEX IF NOT EXISTS idx_password_reset_codes_user ON password_reset_codes(user_id)");
+                statement.executeUpdate("CREATE INDEX IF NOT EXISTS idx_projects_user_updated ON projects(user_id, updated_at)");
+                statement.executeUpdate("CREATE INDEX IF NOT EXISTS idx_project_layers_project_order ON project_layers(project_id, layer_order)");
             }
 
             available = true;
@@ -52,7 +112,11 @@ public class DatabaseManager {
     }
 
     public Connection openConnection() throws SQLException {
-        return DriverManager.getConnection(jdbcUrl);
+        Connection connection = DriverManager.getConnection(jdbcUrl);
+        try (Statement statement = connection.createStatement()) {
+            statement.execute("PRAGMA foreign_keys = ON");
+        }
+        return connection;
     }
 
     public boolean isAvailable() {

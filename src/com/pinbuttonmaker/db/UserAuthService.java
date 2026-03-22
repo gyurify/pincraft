@@ -2,22 +2,36 @@ package com.pinbuttonmaker.db;
 
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
+import java.security.SecureRandom;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.sql.Statement;
+import java.time.Duration;
+import java.time.Instant;
+import java.time.format.DateTimeFormatter;
 import java.util.Locale;
+import java.util.UUID;
+
+import com.pinbuttonmaker.mail.SmtpMailSender;
 
 public class UserAuthService {
-    private final DatabaseManager databaseManager;
+    private static final DateTimeFormatter TIMESTAMP_FORMATTER = DateTimeFormatter.ISO_INSTANT;
+    private static final Duration PASSWORD_RESET_WINDOW = Duration.ofMinutes(15);
+    private static final SecureRandom RANDOM = new SecureRandom();
 
-    public UserAuthService(DatabaseManager databaseManager) {
+    private final DatabaseManager databaseManager;
+    private final SmtpMailSender mailSender;
+
+    public UserAuthService(DatabaseManager databaseManager, SmtpMailSender mailSender) {
         this.databaseManager = databaseManager;
+        this.mailSender = mailSender;
     }
 
     public AuthResult register(String email, String password) {
         String normalizedEmail = normalizeEmail(email);
-        String normalizedPassword = password == null ? "" : password.trim();
+        String normalizedPassword = normalizePassword(password);
 
         if (!databaseManager.isAvailable()) {
             return AuthResult.failure(databaseManager.getStatusMessage());
@@ -30,19 +44,21 @@ public class UserAuthService {
         }
 
         try (Connection connection = databaseManager.openConnection()) {
-            if (userExists(connection, normalizedEmail)) {
+            if (findUserRecord(connection, normalizedEmail) != null) {
                 return AuthResult.failure("That email is already registered.");
             }
 
             try (PreparedStatement insert = connection.prepareStatement(
-                "INSERT INTO users (email, password_hash) VALUES (?, ?)"
+                "INSERT INTO users (email, password_hash) VALUES (?, ?)",
+                Statement.RETURN_GENERATED_KEYS
             )) {
                 insert.setString(1, normalizedEmail);
                 insert.setString(2, hashPassword(normalizedPassword));
                 insert.executeUpdate();
-            }
 
-            return AuthResult.success(normalizedEmail, "Registration successful.");
+                long userId = readGeneratedUserId(insert);
+                return AuthResult.success(userId, normalizedEmail, "Registration successful.");
+            }
         } catch (SQLException exception) {
             return AuthResult.failure("Registration failed: " + exception.getMessage());
         }
@@ -50,7 +66,7 @@ public class UserAuthService {
 
     public AuthResult login(String email, String password) {
         String normalizedEmail = normalizeEmail(email);
-        String normalizedPassword = password == null ? "" : password.trim();
+        String normalizedPassword = normalizePassword(password);
 
         if (!databaseManager.isAvailable()) {
             return AuthResult.failure(databaseManager.getStatusMessage());
@@ -62,27 +78,138 @@ public class UserAuthService {
             return AuthResult.failure("Password is required.");
         }
 
-        try (Connection connection = databaseManager.openConnection();
-             PreparedStatement query = connection.prepareStatement(
-                 "SELECT password_hash FROM users WHERE email = ?"
-             )) {
-            query.setString(1, normalizedEmail);
-
-            try (ResultSet resultSet = query.executeQuery()) {
-                if (!resultSet.next()) {
-                    return AuthResult.failure("No account found for that email.");
-                }
-
-                String storedHash = resultSet.getString("password_hash");
-                String suppliedHash = hashPassword(normalizedPassword);
-                if (!suppliedHash.equals(storedHash)) {
-                    return AuthResult.failure("Incorrect password.");
-                }
+        try (Connection connection = databaseManager.openConnection()) {
+            UserRecord user = findUserRecord(connection, normalizedEmail);
+            if (user == null) {
+                return AuthResult.failure("No account found for that email.");
             }
 
-            return AuthResult.success(normalizedEmail, "Login successful.");
+            String suppliedHash = hashPassword(normalizedPassword);
+            if (!suppliedHash.equals(user.passwordHash)) {
+                return AuthResult.failure("Incorrect password.");
+            }
+
+            return AuthResult.success(user.id, user.email, "Login successful.");
         } catch (SQLException exception) {
             return AuthResult.failure("Login failed: " + exception.getMessage());
+        }
+    }
+
+    public AuthResult signInWithMockProvider(String email) {
+        String normalizedEmail = normalizeEmail(email);
+
+        if (!databaseManager.isAvailable()) {
+            return AuthResult.failure(databaseManager.getStatusMessage());
+        }
+        if (!isValidEmail(normalizedEmail)) {
+            return AuthResult.failure("Enter a valid email address.");
+        }
+
+        try (Connection connection = databaseManager.openConnection()) {
+            UserRecord existingUser = findUserRecord(connection, normalizedEmail);
+            if (existingUser != null) {
+                return AuthResult.success(existingUser.id, existingUser.email, "Login successful.");
+            }
+
+            try (PreparedStatement insert = connection.prepareStatement(
+                "INSERT INTO users (email, password_hash) VALUES (?, ?)",
+                Statement.RETURN_GENERATED_KEYS
+            )) {
+                insert.setString(1, normalizedEmail);
+                insert.setString(2, hashPassword(UUID.randomUUID().toString()));
+                insert.executeUpdate();
+                return AuthResult.success(readGeneratedUserId(insert), normalizedEmail, "Login successful.");
+            }
+        } catch (SQLException exception) {
+            return AuthResult.failure("Mock sign-in failed: " + exception.getMessage());
+        }
+    }
+
+    public AuthResult requestPasswordReset(String email) {
+        String normalizedEmail = normalizeEmail(email);
+
+        if (!databaseManager.isAvailable()) {
+            return AuthResult.failure(databaseManager.getStatusMessage());
+        }
+        if (!isValidEmail(normalizedEmail)) {
+            return AuthResult.failure("Enter a valid email address.");
+        }
+
+        try (Connection connection = databaseManager.openConnection()) {
+            UserRecord user = findUserRecord(connection, normalizedEmail);
+            if (user == null) {
+                return AuthResult.failure("No account found for that email.");
+            }
+
+            String resetCode = generateResetCode();
+            clearPasswordResetCodes(connection, user.id);
+            savePasswordResetCode(connection, user.id, resetCode);
+
+            SmtpMailSender.SendResult sendResult = mailSender.sendPasswordResetCode(
+                normalizedEmail,
+                resetCode,
+                PASSWORD_RESET_WINDOW
+            );
+
+            if (!sendResult.isSuccess()) {
+                clearPasswordResetCodes(connection, user.id);
+                return AuthResult.failure(sendResult.getMessage());
+            }
+
+            return AuthResult.success(user.id, normalizedEmail, "A reset code was sent to " + normalizedEmail + ".");
+        } catch (SQLException exception) {
+            return AuthResult.failure("Unable to start password reset: " + exception.getMessage());
+        }
+    }
+
+    public AuthResult resetPassword(String email, String resetCode, String newPassword) {
+        String normalizedEmail = normalizeEmail(email);
+        String normalizedCode = resetCode == null ? "" : resetCode.trim();
+        String normalizedPassword = normalizePassword(newPassword);
+
+        if (!databaseManager.isAvailable()) {
+            return AuthResult.failure(databaseManager.getStatusMessage());
+        }
+        if (!isValidEmail(normalizedEmail)) {
+            return AuthResult.failure("Enter a valid email address.");
+        }
+        if (normalizedCode.isEmpty()) {
+            return AuthResult.failure("Enter the reset code from your email.");
+        }
+        if (normalizedPassword.isEmpty()) {
+            return AuthResult.failure("Enter a new password.");
+        }
+
+        try (Connection connection = databaseManager.openConnection()) {
+            UserRecord user = findUserRecord(connection, normalizedEmail);
+            if (user == null) {
+                return AuthResult.failure("No account found for that email.");
+            }
+
+            PasswordResetCode storedCode = findLatestPasswordResetCode(connection, user.id);
+            if (storedCode == null) {
+                return AuthResult.failure("Request a new reset code first.");
+            }
+            if (storedCode.isExpired()) {
+                clearPasswordResetCodes(connection, user.id);
+                return AuthResult.failure("That reset code has expired. Request a new one.");
+            }
+            if (!storedCode.codeHash.equals(hashPassword(normalizedCode))) {
+                return AuthResult.failure("Incorrect reset code.");
+            }
+
+            try (PreparedStatement update = connection.prepareStatement(
+                "UPDATE users SET password_hash = ? WHERE id = ?"
+            )) {
+                update.setString(1, hashPassword(normalizedPassword));
+                update.setLong(2, user.id);
+                update.executeUpdate();
+            }
+
+            clearPasswordResetCodes(connection, user.id);
+            return AuthResult.success(user.id, normalizedEmail, "Password updated. You can sign in now.");
+        } catch (SQLException exception) {
+            return AuthResult.failure("Unable to reset the password: " + exception.getMessage());
         }
     }
 
@@ -94,15 +221,71 @@ public class UserAuthService {
         return databaseManager.getStatusMessage();
     }
 
-    private boolean userExists(Connection connection, String email) throws SQLException {
+    private UserRecord findUserRecord(Connection connection, String email) throws SQLException {
         try (PreparedStatement query = connection.prepareStatement(
-            "SELECT 1 FROM users WHERE email = ? LIMIT 1"
+            "SELECT id, email, password_hash FROM users WHERE email = ? LIMIT 1"
         )) {
             query.setString(1, email);
             try (ResultSet resultSet = query.executeQuery()) {
-                return resultSet.next();
+                if (!resultSet.next()) {
+                    return null;
+                }
+
+                return new UserRecord(
+                    resultSet.getLong("id"),
+                    resultSet.getString("email"),
+                    resultSet.getString("password_hash")
+                );
             }
         }
+    }
+
+    private PasswordResetCode findLatestPasswordResetCode(Connection connection, long userId) throws SQLException {
+        try (PreparedStatement query = connection.prepareStatement(
+            "SELECT code_hash, expires_at FROM password_reset_codes WHERE user_id = ? "
+                + "ORDER BY created_at DESC, id DESC LIMIT 1"
+        )) {
+            query.setLong(1, userId);
+            try (ResultSet resultSet = query.executeQuery()) {
+                if (!resultSet.next()) {
+                    return null;
+                }
+
+                return new PasswordResetCode(
+                    resultSet.getString("code_hash"),
+                    Instant.parse(resultSet.getString("expires_at"))
+                );
+            }
+        }
+    }
+
+    private void savePasswordResetCode(Connection connection, long userId, String resetCode) throws SQLException {
+        try (PreparedStatement insert = connection.prepareStatement(
+            "INSERT INTO password_reset_codes (user_id, code_hash, expires_at) VALUES (?, ?, ?)"
+        )) {
+            insert.setLong(1, userId);
+            insert.setString(2, hashPassword(resetCode));
+            insert.setString(3, TIMESTAMP_FORMATTER.format(Instant.now().plus(PASSWORD_RESET_WINDOW)));
+            insert.executeUpdate();
+        }
+    }
+
+    private void clearPasswordResetCodes(Connection connection, long userId) throws SQLException {
+        try (PreparedStatement delete = connection.prepareStatement(
+            "DELETE FROM password_reset_codes WHERE user_id = ?"
+        )) {
+            delete.setLong(1, userId);
+            delete.executeUpdate();
+        }
+    }
+
+    private long readGeneratedUserId(PreparedStatement statement) throws SQLException {
+        try (ResultSet keys = statement.getGeneratedKeys()) {
+            if (keys.next()) {
+                return keys.getLong(1);
+            }
+        }
+        throw new SQLException("Unable to determine the created user id.");
     }
 
     private boolean isValidEmail(String email) {
@@ -114,6 +297,15 @@ public class UserAuthService {
             return "";
         }
         return email.trim().toLowerCase(Locale.ENGLISH);
+    }
+
+    private String normalizePassword(String password) {
+        return password == null ? "" : password.trim();
+    }
+
+    private String generateResetCode() {
+        int value = RANDOM.nextInt(1_000_000);
+        return String.format("%06d", value);
     }
 
     private String hashPassword(String password) {
@@ -132,25 +324,31 @@ public class UserAuthService {
 
     public static final class AuthResult {
         private final boolean success;
+        private final Long userId;
         private final String userEmail;
         private final String message;
 
-        private AuthResult(boolean success, String userEmail, String message) {
+        private AuthResult(boolean success, Long userId, String userEmail, String message) {
             this.success = success;
+            this.userId = userId;
             this.userEmail = userEmail;
             this.message = message;
         }
 
-        public static AuthResult success(String userEmail, String message) {
-            return new AuthResult(true, userEmail, message);
+        public static AuthResult success(Long userId, String userEmail, String message) {
+            return new AuthResult(true, userId, userEmail, message);
         }
 
         public static AuthResult failure(String message) {
-            return new AuthResult(false, null, message);
+            return new AuthResult(false, null, null, message);
         }
 
         public boolean isSuccess() {
             return success;
+        }
+
+        public Long getUserId() {
+            return userId;
         }
 
         public String getUserEmail() {
@@ -159,6 +357,32 @@ public class UserAuthService {
 
         public String getMessage() {
             return message;
+        }
+    }
+
+    private static final class UserRecord {
+        private final long id;
+        private final String email;
+        private final String passwordHash;
+
+        private UserRecord(long id, String email, String passwordHash) {
+            this.id = id;
+            this.email = email;
+            this.passwordHash = passwordHash;
+        }
+    }
+
+    private static final class PasswordResetCode {
+        private final String codeHash;
+        private final Instant expiresAt;
+
+        private PasswordResetCode(String codeHash, Instant expiresAt) {
+            this.codeHash = codeHash;
+            this.expiresAt = expiresAt;
+        }
+
+        private boolean isExpired() {
+            return expiresAt == null || Instant.now().isAfter(expiresAt);
         }
     }
 }

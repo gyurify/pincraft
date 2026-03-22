@@ -19,6 +19,13 @@ public class ProjectData {
         this(UUID.randomUUID().toString(), projectName, true);
     }
 
+    public static ProjectData restore(String projectId, String projectName) {
+        String resolvedProjectId = projectId == null || projectId.trim().isEmpty()
+            ? UUID.randomUUID().toString()
+            : projectId.trim();
+        return new ProjectData(resolvedProjectId, projectName, false);
+    }
+
     public ProjectData(ProjectData source) {
         this(source.projectId, source.projectName, false);
         this.buttonDiameterMm = source.buttonDiameterMm;
@@ -75,6 +82,10 @@ public class ProjectData {
         if (index >= 0 && index < layers.size()) {
             layers.remove(index);
         }
+    }
+
+    public void clearLayers() {
+        layers.clear();
     }
 
     public void moveLayer(int fromIndex, int toIndex) {

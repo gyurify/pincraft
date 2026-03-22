@@ -34,6 +34,7 @@ import javax.swing.border.MatteBorder;
 import com.pinbuttonmaker.AppRouter;
 import com.pinbuttonmaker.AppState;
 import com.pinbuttonmaker.data.ProjectData;
+import com.pinbuttonmaker.db.ProjectStorageService;
 import com.pinbuttonmaker.ui.components.CustomButton;
 
 public class HomePage extends JPanel {
@@ -60,11 +61,13 @@ public class HomePage extends JPanel {
 
     private final RoundedPanel heroCard;
     private final CustomButton startButton;
+    private final JButton profileButton;
 
     public HomePage(AppRouter router, AppState appState) {
         this.router = router;
         this.appState = appState;
         this.recentGridPanel = new JPanel();
+        this.profileButton = createProfileButton();
 
         setLayout(new BorderLayout());
         setBackground(PAGE_BG);
@@ -83,7 +86,7 @@ public class HomePage extends JPanel {
 
         addHierarchyListener(event -> {
             if ((event.getChangeFlags() & HierarchyEvent.SHOWING_CHANGED) != 0 && isShowing()) {
-                refreshRecentDesigns();
+                refreshHomeState();
             }
         });
 
@@ -96,7 +99,7 @@ public class HomePage extends JPanel {
 
         SwingUtilities.invokeLater(() -> {
             applyResponsiveLayout();
-            refreshRecentDesigns();
+            refreshHomeState();
         });
     }
 
@@ -120,7 +123,7 @@ public class HomePage extends JPanel {
         JPanel rightGroup = new JPanel(new FlowLayout(FlowLayout.RIGHT, 14, 10));
         rightGroup.setOpaque(false);
         rightGroup.setBorder(new EmptyBorder(0, 0, 0, 8));
-        rightGroup.add(createProfileButton());
+        rightGroup.add(profileButton);
 
         header.add(leftGroup, BorderLayout.WEST);
         header.add(rightGroup, BorderLayout.EAST);
@@ -128,10 +131,7 @@ public class HomePage extends JPanel {
     }
 
     private JButton createProfileButton() {
-        String user = appState.getCurrentUser() == null ? "U" : appState.getCurrentUser().trim();
-        String initial = user.isEmpty() ? "U" : user.substring(0, 1).toUpperCase();
-
-        JButton button = new JButton(initial);
+        JButton button = new JButton("U");
         button.setFont(new Font("SansSerif", Font.BOLD, 13));
         button.setForeground(new Color(33, 43, 60));
         button.setBackground(new Color(238, 242, 249));
@@ -243,15 +243,38 @@ public class HomePage extends JPanel {
             return;
         }
 
-        appState.removeSavedProject(project.getProjectId());
+        ProjectStorageService.StorageResult<Void> result = appState.removeSavedProject(project.getProjectId());
+        if (!result.isSuccess()) {
+            JOptionPane.showMessageDialog(
+                this,
+                result.getMessage(),
+                "Remove Project",
+                JOptionPane.ERROR_MESSAGE
+            );
+            return;
+        }
+
         refreshRecentDesigns();
 
         JOptionPane.showMessageDialog(
             this,
-            "\"" + projectName + "\" was removed.",
+            result.getMessage(),
             "Removed",
             JOptionPane.INFORMATION_MESSAGE
         );
+    }
+
+    private void refreshHomeState() {
+        appState.refreshSavedProjects();
+        updateProfileButton();
+        refreshRecentDesigns();
+    }
+
+    private void updateProfileButton() {
+        String user = appState.getCurrentUser() == null ? "U" : appState.getCurrentUser().trim();
+        String initial = user.isEmpty() ? "U" : user.substring(0, 1).toUpperCase();
+        profileButton.setText(initial);
+        profileButton.setToolTipText(appState.isAuthenticated() ? appState.getCurrentUser() : "Guest");
     }
 
     private void refreshRecentDesigns() {
@@ -326,7 +349,16 @@ public class HomePage extends JPanel {
 
         JButton openButton = createProjectActionButton("Open", new Color(38, 96, 225));
         openButton.addActionListener(event -> {
-            appState.loadProjectAsCurrent(project.getProjectId());
+            ProjectStorageService.StorageResult<ProjectData> result = appState.loadProjectAsCurrent(project.getProjectId());
+            if (!result.isSuccess()) {
+                JOptionPane.showMessageDialog(
+                    this,
+                    result.getMessage(),
+                    "Open Project",
+                    JOptionPane.ERROR_MESSAGE
+                );
+                return;
+            }
             router.showEditor();
         });
 

@@ -19,6 +19,7 @@ import javax.swing.BorderFactory;
 import javax.swing.Box;
 import javax.swing.BoxLayout;
 import javax.swing.JButton;
+import javax.swing.JCheckBox;
 import javax.swing.JComponent;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
@@ -61,6 +62,7 @@ public class LoginPage extends JPanel {
 
     private static final String EMAIL_PLACEHOLDER = "Enter your email";
     private static final String PASSWORD_PLACEHOLDER = "Enter your password";
+    private static final String CONFIRM_PASSWORD_PLACEHOLDER = "Confirm your password";
 
     private final AppRouter router;
     private final AppState appState;
@@ -71,8 +73,13 @@ public class LoginPage extends JPanel {
 
     private final JTextField emailField;
     private final JPasswordField passwordField;
+    private final JPasswordField confirmPasswordField;
     private final RoundedPanel emailRow;
     private final RoundedPanel passwordRow;
+    private final RoundedPanel confirmPasswordRow;
+    private final JLabel confirmPasswordLabel;
+    private final Component confirmPasswordTopSpacer;
+    private final Component confirmPasswordFieldSpacer;
 
     private final JButton passwordToggleButton;
     private final JButton forgotPasswordButton;
@@ -87,6 +94,7 @@ public class LoginPage extends JPanel {
     private boolean passwordVisible;
     private boolean emailPlaceholderActive;
     private boolean passwordPlaceholderActive;
+    private boolean confirmPasswordPlaceholderActive;
     private final char defaultPasswordEcho;
 
     public LoginPage(AppRouter router, AppState appState) {
@@ -108,6 +116,7 @@ public class LoginPage extends JPanel {
 
         emailField = createEmailField();
         passwordField = createPasswordField();
+        confirmPasswordField = createPasswordField();
         defaultPasswordEcho = passwordField.getEchoChar();
 
         passwordToggleButton = createPasswordToggleButton();
@@ -122,12 +131,17 @@ public class LoginPage extends JPanel {
 
         emailRow = createInputRow("@", emailField, null);
         passwordRow = createInputRow("#", passwordField, passwordToggleButton);
+        confirmPasswordLabel = createFieldLabel("Confirm Password");
+        confirmPasswordRow = createInputRow("#", confirmPasswordField, null);
+        confirmPasswordTopSpacer = Box.createVerticalStrut(10);
+        confirmPasswordFieldSpacer = Box.createVerticalStrut(6);
 
         layoutCard();
         layoutFooter(content);
 
         installEmailPlaceholder();
         installPasswordPlaceholder();
+        installConfirmPasswordPlaceholder();
         setRegisterMode(false);
 
         addComponentListener(new ComponentAdapter() {
@@ -167,7 +181,7 @@ public class LoginPage extends JPanel {
 
         content.add(Box.createVerticalStrut(6));
 
-        JLabel subtitle = new JLabel("PROTOTYPE. (you can press login w/o registering)");
+        JLabel subtitle = new JLabel("Sign in to save designs per account and reset passwords by email.");
         subtitle.setFont(new Font("SansSerif", Font.PLAIN, 14));
         subtitle.setForeground(MUTED_TEXT);
         subtitle.setAlignmentX(Component.CENTER_ALIGNMENT);
@@ -303,6 +317,10 @@ public class LoginPage extends JPanel {
         cardPanel.add(createFieldLabel("Password"));
         cardPanel.add(Box.createVerticalStrut(6));
         cardPanel.add(passwordRow);
+        cardPanel.add(confirmPasswordTopSpacer);
+        cardPanel.add(confirmPasswordLabel);
+        cardPanel.add(confirmPasswordFieldSpacer);
+        cardPanel.add(confirmPasswordRow);
         cardPanel.add(Box.createVerticalStrut(4));
         cardPanel.add(forgotPasswordRow);
         cardPanel.add(Box.createVerticalStrut(10));
@@ -312,7 +330,7 @@ public class LoginPage extends JPanel {
         cardPanel.add(Box.createVerticalStrut(12));
         cardPanel.add(googleButton);
 
-        forgotPasswordButton.addActionListener(event -> Utils.showInfo(this, "Password recovery is not implemented in this prototype."));
+        forgotPasswordButton.addActionListener(event -> handleForgotPassword());
     }
 
     private void layoutFooter(JPanel contentPanel) {
@@ -396,6 +414,10 @@ public class LoginPage extends JPanel {
         submitButton.setText(registerMode ? "Register  ->" : "Sign In  ->");
         forgotPasswordButton.setVisible(!registerMode);
         forgotPasswordButton.setEnabled(!registerMode);
+        confirmPasswordTopSpacer.setVisible(registerMode);
+        confirmPasswordLabel.setVisible(registerMode);
+        confirmPasswordFieldSpacer.setVisible(registerMode);
+        confirmPasswordRow.setVisible(registerMode);
 
         if (registerMode) {
             footerPrefixLabel.setText("Already have an account?");
@@ -423,8 +445,8 @@ public class LoginPage extends JPanel {
         int cardWidth = Math.max(330, Math.min(520, availableWidth - sidePadding));
 
         int availableHeight = Math.max(520, getHeight());
-        int desiredHeight = 500;
-        int minHeight = 450;
+        int desiredHeight = registerMode ? 560 : 500;
+        int minHeight = registerMode ? 500 : 450;
         int cardHeight = Math.max(minHeight, Math.min(desiredHeight, availableHeight - 170));
 
         cardPanel.setPreferredSize(new Dimension(cardWidth, cardHeight));
@@ -435,6 +457,8 @@ public class LoginPage extends JPanel {
         emailRow.setMaximumSize(rowSize);
         passwordRow.setPreferredSize(rowSize);
         passwordRow.setMaximumSize(rowSize);
+        confirmPasswordRow.setPreferredSize(rowSize);
+        confirmPasswordRow.setMaximumSize(rowSize);
 
         Dimension forgotSize = new Dimension(cardWidth - 40, cardWidth < 400 ? 22 : 24);
         forgotPasswordRow.setPreferredSize(forgotSize);
@@ -459,6 +483,7 @@ public class LoginPage extends JPanel {
         registerTabButton.setFont(new Font("SansSerif", Font.BOLD, tabFontSize));
         emailField.setFont(new Font("SansSerif", Font.PLAIN, inputFontSize));
         passwordField.setFont(new Font("SansSerif", Font.PLAIN, inputFontSize));
+        confirmPasswordField.setFont(new Font("SansSerif", Font.PLAIN, inputFontSize));
         forgotPasswordButton.setFont(new Font("SansSerif", Font.PLAIN, inputFontSize - 1));
         submitButton.setFont(new Font("SansSerif", Font.BOLD, buttonFontSize));
 
@@ -503,8 +528,8 @@ public class LoginPage extends JPanel {
                 if (passwordPlaceholderActive) {
                     passwordField.setText("");
                     passwordField.setForeground(INPUT_TEXT);
-                    passwordField.setEchoChar(defaultPasswordEcho);
                     passwordPlaceholderActive = false;
+                    applyPasswordEchoState(passwordField, false);
                 }
             }
 
@@ -535,26 +560,84 @@ public class LoginPage extends JPanel {
     }
 
     private void setPasswordPlaceholder() {
-        passwordField.setEchoChar((char) 0);
         passwordField.setText(PASSWORD_PLACEHOLDER);
         passwordField.setForeground(INPUT_PLACEHOLDER);
         passwordPlaceholderActive = true;
         passwordVisible = false;
+        applyPasswordEchoState(passwordField, true);
+        updatePasswordToggleText();
+    }
+
+    private void installConfirmPasswordPlaceholder() {
+        setConfirmPasswordPlaceholder();
+
+        confirmPasswordField.addFocusListener(new java.awt.event.FocusAdapter() {
+            @Override
+            public void focusGained(java.awt.event.FocusEvent e) {
+                if (confirmPasswordPlaceholderActive) {
+                    confirmPasswordField.setText("");
+                    confirmPasswordField.setForeground(INPUT_TEXT);
+                    confirmPasswordPlaceholderActive = false;
+                    applyPasswordEchoState(confirmPasswordField, false);
+                }
+            }
+
+            @Override
+            public void focusLost(java.awt.event.FocusEvent e) {
+                if (new String(confirmPasswordField.getPassword()).trim().isEmpty()) {
+                    setConfirmPasswordPlaceholder();
+                }
+            }
+        });
+
+        confirmPasswordField.getDocument().addDocumentListener(new DocumentListener() {
+            @Override
+            public void insertUpdate(DocumentEvent e) {
+                updatePasswordToggleText();
+            }
+
+            @Override
+            public void removeUpdate(DocumentEvent e) {
+                updatePasswordToggleText();
+            }
+
+            @Override
+            public void changedUpdate(DocumentEvent e) {
+                updatePasswordToggleText();
+            }
+        });
+    }
+
+    private void setConfirmPasswordPlaceholder() {
+        confirmPasswordField.setText(CONFIRM_PASSWORD_PLACEHOLDER);
+        confirmPasswordField.setForeground(INPUT_PLACEHOLDER);
+        confirmPasswordPlaceholderActive = true;
+        applyPasswordEchoState(confirmPasswordField, true);
         updatePasswordToggleText();
     }
 
     private void togglePasswordVisibility() {
-        if (passwordPlaceholderActive) {
+        if (passwordPlaceholderActive && (!registerMode || confirmPasswordPlaceholderActive)) {
             return;
         }
 
         passwordVisible = !passwordVisible;
-        passwordField.setEchoChar(passwordVisible ? (char) 0 : defaultPasswordEcho);
+        applyPasswordEchoState(passwordField, passwordPlaceholderActive);
+        applyPasswordEchoState(confirmPasswordField, confirmPasswordPlaceholderActive);
         updatePasswordToggleText();
     }
 
+    private void applyPasswordEchoState(JPasswordField field, boolean placeholderActive) {
+        field.setEchoChar(placeholderActive || passwordVisible ? (char) 0 : defaultPasswordEcho);
+    }
+
     private void updatePasswordToggleText() {
-        if (passwordPlaceholderActive || new String(passwordField.getPassword()).trim().isEmpty()) {
+        boolean mainPasswordFilled = !passwordPlaceholderActive && !new String(passwordField.getPassword()).trim().isEmpty();
+        boolean confirmPasswordFilled = registerMode
+            && !confirmPasswordPlaceholderActive
+            && !new String(confirmPasswordField.getPassword()).trim().isEmpty();
+
+        if (!mainPasswordFilled && !confirmPasswordFilled) {
             passwordToggleButton.setText("Show");
             return;
         }
@@ -576,10 +659,164 @@ public class LoginPage extends JPanel {
         return new String(passwordField.getPassword()).trim();
     }
 
+    private String readConfirmPasswordValue() {
+        if (confirmPasswordPlaceholderActive) {
+            return "";
+        }
+        return new String(confirmPasswordField.getPassword()).trim();
+    }
+
+    private void handleForgotPassword() {
+        JTextField resetEmailField = new JTextField(readEmailValue());
+        resetEmailField.setColumns(24);
+
+        JPanel requestPanel = new JPanel();
+        requestPanel.setOpaque(false);
+        requestPanel.setLayout(new BoxLayout(requestPanel, BoxLayout.Y_AXIS));
+        requestPanel.add(new JLabel("Account email"));
+        requestPanel.add(Box.createVerticalStrut(6));
+        requestPanel.add(resetEmailField);
+
+        int requestChoice = JOptionPane.showConfirmDialog(
+            this,
+            requestPanel,
+            "Forgot Password",
+            JOptionPane.OK_CANCEL_OPTION,
+            JOptionPane.PLAIN_MESSAGE
+        );
+
+        if (requestChoice != JOptionPane.OK_OPTION) {
+            return;
+        }
+
+        UserAuthService.AuthResult requestResult = appState.getUserAuthService().requestPasswordReset(resetEmailField.getText());
+        if (!requestResult.isSuccess()) {
+            JOptionPane.showMessageDialog(
+                this,
+                requestResult.getMessage(),
+                "Forgot Password",
+                JOptionPane.ERROR_MESSAGE
+            );
+            return;
+        }
+
+        Utils.showInfo(this, requestResult.getMessage());
+        showResetCodeDialog(requestResult.getUserEmail());
+    }
+
+    private void showResetCodeDialog(String email) {
+        JTextField codeField = new JTextField();
+        codeField.setColumns(12);
+
+        JPasswordField newPasswordField = new JPasswordField();
+        JPasswordField confirmPasswordField = new JPasswordField();
+        char newPasswordEcho = newPasswordField.getEchoChar();
+        char confirmPasswordEcho = confirmPasswordField.getEchoChar();
+        JCheckBox showPasswordsCheck = new JCheckBox("Show passwords");
+        showPasswordsCheck.setOpaque(false);
+        showPasswordsCheck.addActionListener(event -> {
+            char echo = showPasswordsCheck.isSelected() ? (char) 0 : newPasswordEcho;
+            newPasswordField.setEchoChar(echo);
+            confirmPasswordField.setEchoChar(showPasswordsCheck.isSelected() ? (char) 0 : confirmPasswordEcho);
+        });
+
+        JPanel resetPanel = new JPanel();
+        resetPanel.setOpaque(false);
+        resetPanel.setLayout(new BoxLayout(resetPanel, BoxLayout.Y_AXIS));
+        resetPanel.add(new JLabel("Reset code"));
+        resetPanel.add(Box.createVerticalStrut(6));
+        resetPanel.add(codeField);
+        resetPanel.add(Box.createVerticalStrut(10));
+        resetPanel.add(new JLabel("New password"));
+        resetPanel.add(Box.createVerticalStrut(6));
+        resetPanel.add(newPasswordField);
+        resetPanel.add(Box.createVerticalStrut(10));
+        resetPanel.add(new JLabel("Confirm new password"));
+        resetPanel.add(Box.createVerticalStrut(6));
+        resetPanel.add(confirmPasswordField);
+        resetPanel.add(Box.createVerticalStrut(10));
+        resetPanel.add(showPasswordsCheck);
+
+        int resetChoice = JOptionPane.showConfirmDialog(
+            this,
+            resetPanel,
+            "Enter Reset Code",
+            JOptionPane.OK_CANCEL_OPTION,
+            JOptionPane.PLAIN_MESSAGE
+        );
+
+        if (resetChoice != JOptionPane.OK_OPTION) {
+            return;
+        }
+
+        String newPassword = new String(newPasswordField.getPassword()).trim();
+        String confirmedPassword = new String(confirmPasswordField.getPassword()).trim();
+        if (!newPassword.equals(confirmedPassword)) {
+            JOptionPane.showMessageDialog(
+                this,
+                "The new password and confirmation do not match.",
+                "Enter Reset Code",
+                JOptionPane.ERROR_MESSAGE
+            );
+            return;
+        }
+
+        UserAuthService.AuthResult resetResult = appState.getUserAuthService().resetPassword(email, codeField.getText(), newPassword);
+        if (!resetResult.isSuccess()) {
+            JOptionPane.showMessageDialog(
+                this,
+                resetResult.getMessage(),
+                "Enter Reset Code",
+                JOptionPane.ERROR_MESSAGE
+            );
+            return;
+        }
+
+        setRegisterMode(false);
+        setEmailFieldValue(email);
+        setPasswordPlaceholder();
+        Utils.showInfo(this, resetResult.getMessage());
+    }
+
+    private void setEmailFieldValue(String value) {
+        String normalizedValue = value == null ? "" : value.trim();
+        if (normalizedValue.isEmpty()) {
+            setEmailPlaceholder();
+            return;
+        }
+
+        emailField.setText(normalizedValue);
+        emailField.setForeground(INPUT_TEXT);
+        emailPlaceholderActive = false;
+    }
+
     private void handleEmailAuth() {
         String email = readEmailValue();
         String password = readPasswordValue();
         UserAuthService authService = appState.getUserAuthService();
+
+        if (registerMode) {
+            String confirmedPassword = readConfirmPasswordValue();
+            if (confirmedPassword.isEmpty()) {
+                JOptionPane.showMessageDialog(
+                    this,
+                    "Confirm your password before registering.",
+                    "Register",
+                    JOptionPane.ERROR_MESSAGE
+                );
+                return;
+            }
+
+            if (!password.equals(confirmedPassword)) {
+                JOptionPane.showMessageDialog(
+                    this,
+                    "Password and confirm password do not match.",
+                    "Register",
+                    JOptionPane.ERROR_MESSAGE
+                );
+                return;
+            }
+        }
 
         UserAuthService.AuthResult result = registerMode
             ? authService.register(email, password)
@@ -595,13 +832,24 @@ public class LoginPage extends JPanel {
             return;
         }
 
-        appState.setCurrentUser(result.getUserEmail());
+        appState.setAuthenticatedUser(result.getUserId(), result.getUserEmail());
         Utils.showInfo(this, registerMode ? "Registered: " + result.getUserEmail() : "Signed in: " + result.getUserEmail());
         router.showHome();
     }
 
     private void handleGoogleAuth() {
-        appState.setCurrentUser("google.user@pincraft.local");
+        UserAuthService.AuthResult result = appState.getUserAuthService().signInWithMockProvider("google.user@pincraft.local");
+        if (!result.isSuccess()) {
+            JOptionPane.showMessageDialog(
+                this,
+                result.getMessage(),
+                "Google Sign-In",
+                JOptionPane.ERROR_MESSAGE
+            );
+            return;
+        }
+
+        appState.setAuthenticatedUser(result.getUserId(), result.getUserEmail());
         Utils.showInfo(this, "Google sign-in successful (mock).");
         router.showHome();
     }
@@ -707,5 +955,3 @@ public class LoginPage extends JPanel {
         }
     }
 }
-
-
