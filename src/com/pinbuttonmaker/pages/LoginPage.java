@@ -2,6 +2,7 @@ package com.pinbuttonmaker.pages;
 
 import java.awt.BasicStroke;
 import java.awt.BorderLayout;
+import java.awt.CardLayout;
 import java.awt.Color;
 import java.awt.Component;
 import java.awt.Dimension;
@@ -11,6 +12,7 @@ import java.awt.Graphics2D;
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
 import java.awt.GridLayout;
+import java.awt.Insets;
 import java.awt.RenderingHints;
 import java.awt.event.ComponentAdapter;
 import java.awt.event.ComponentEvent;
@@ -19,7 +21,6 @@ import javax.swing.BorderFactory;
 import javax.swing.Box;
 import javax.swing.BoxLayout;
 import javax.swing.JButton;
-import javax.swing.JCheckBox;
 import javax.swing.JComponent;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
@@ -59,17 +60,27 @@ public class LoginPage extends JPanel {
     private static final Color LINK_COLOR = new Color(27, 90, 244);
     private static final Color PRIMARY_BLUE = new Color(47, 103, 232);
     private static final Color PRIMARY_BLUE_HOVER = new Color(39, 93, 213);
+    private static final Color STATUS_SUCCESS = new Color(47, 122, 84);
+    private static final Color STATUS_ERROR = new Color(181, 62, 62);
 
     private static final String EMAIL_PLACEHOLDER = "Enter your email";
     private static final String PASSWORD_PLACEHOLDER = "Enter your password";
     private static final String CONFIRM_PASSWORD_PLACEHOLDER = "Confirm your password";
+    private static final String FORM_AUTH = "auth";
+    private static final String FORM_RESET = "reset";
 
     private final AppRouter router;
     private final AppState appState;
 
     private final RoundedPanel cardPanel;
+    private final JComponent segmentControlPanel;
+    private final CardLayout formCardLayout;
+    private final JPanel formContentPanel;
+    private final JPanel authContentPanel;
+    private final JPanel resetContentPanel;
     private final JButton signInTabButton;
     private final JButton registerTabButton;
+    private final JLabel authStatusLabel;
 
     private final JTextField emailField;
     private final JPasswordField passwordField;
@@ -85,12 +96,35 @@ public class LoginPage extends JPanel {
     private final JButton forgotPasswordButton;
     private final JPanel forgotPasswordRow;
 
+    private final JLabel resetStatusLabel;
+    private final JTextField resetEmailField;
+    private final JTextField resetCodeField;
+    private final JPasswordField resetNewPasswordField;
+    private final JPasswordField resetConfirmPasswordField;
+    private final RoundedPanel resetEmailRow;
+    private final RoundedPanel resetCodeRow;
+    private final RoundedPanel resetNewPasswordRow;
+    private final RoundedPanel resetConfirmPasswordRow;
+    private final JLabel resetCodeLabel;
+    private final JLabel resetNewPasswordLabel;
+    private final JLabel resetConfirmPasswordLabel;
+    private final Component resetCodeTopSpacer;
+    private final Component resetCodeFieldSpacer;
+    private final Component resetNewPasswordTopSpacer;
+    private final Component resetNewPasswordFieldSpacer;
+    private final Component resetConfirmPasswordTopSpacer;
+    private final Component resetConfirmPasswordFieldSpacer;
+    private final RoundedPrimaryButton resetActionButton;
+    private final JButton resetBackButton;
+
     private final RoundedPrimaryButton submitButton;
-    private final JButton googleButton;
     private final JButton footerActionButton;
     private final JLabel footerPrefixLabel;
+    private final JPanel footerPanel;
 
     private boolean registerMode;
+    private boolean resetModeActive;
+    private boolean resetCodeRequested;
     private boolean passwordVisible;
     private boolean emailPlaceholderActive;
     private boolean passwordPlaceholderActive;
@@ -110,9 +144,14 @@ public class LoginPage extends JPanel {
 
         cardPanel = createCardPanel();
         content.add(cardPanel);
+        formCardLayout = new CardLayout();
+        formContentPanel = new JPanel(formCardLayout);
+        formContentPanel.setOpaque(false);
 
         signInTabButton = createSegmentTabButton("Sign In", false);
         registerTabButton = createSegmentTabButton("Register", true);
+        segmentControlPanel = createSegmentControl();
+        authStatusLabel = createStatusLabel();
 
         emailField = createEmailField();
         passwordField = createPasswordField();
@@ -123,11 +162,32 @@ public class LoginPage extends JPanel {
         forgotPasswordButton = createLinkButton("Forgot password?");
         forgotPasswordRow = createForgotPasswordRow();
 
+        resetStatusLabel = createStatusLabel();
+        resetEmailField = createEmailField();
+        resetCodeField = createEmailField();
+        resetNewPasswordField = createPasswordField();
+        resetConfirmPasswordField = createPasswordField();
+        resetEmailRow = createInputRow("@", resetEmailField, null);
+        resetCodeRow = createInputRow("#", resetCodeField, null);
+        resetNewPasswordRow = createInputRow("#", resetNewPasswordField, createDialogPasswordToggleButton(resetNewPasswordField));
+        resetConfirmPasswordRow = createInputRow("#", resetConfirmPasswordField, createDialogPasswordToggleButton(resetConfirmPasswordField));
+        resetCodeLabel = createFieldLabel("Reset Code");
+        resetNewPasswordLabel = createFieldLabel("New Password");
+        resetConfirmPasswordLabel = createFieldLabel("Confirm New Password");
+        resetCodeTopSpacer = Box.createVerticalStrut(10);
+        resetCodeFieldSpacer = Box.createVerticalStrut(6);
+        resetNewPasswordTopSpacer = Box.createVerticalStrut(10);
+        resetNewPasswordFieldSpacer = Box.createVerticalStrut(6);
+        resetConfirmPasswordTopSpacer = Box.createVerticalStrut(10);
+        resetConfirmPasswordFieldSpacer = Box.createVerticalStrut(6);
+        resetActionButton = createResetActionButton();
+        resetBackButton = createResetBackButton();
+
         submitButton = createSubmitButton();
-        googleButton = createGoogleButton();
 
         footerPrefixLabel = new JLabel();
         footerActionButton = createFooterActionButton();
+        footerPanel = new JPanel();
 
         emailRow = createInputRow("@", emailField, null);
         passwordRow = createInputRow("#", passwordField, passwordToggleButton);
@@ -136,12 +196,16 @@ public class LoginPage extends JPanel {
         confirmPasswordTopSpacer = Box.createVerticalStrut(10);
         confirmPasswordFieldSpacer = Box.createVerticalStrut(6);
 
+        authContentPanel = createAuthContentPanel();
+        resetContentPanel = createResetContentPanel();
         layoutCard();
         layoutFooter(content);
 
         installEmailPlaceholder();
         installPasswordPlaceholder();
         installConfirmPasswordPlaceholder();
+        resetModeActive = false;
+        resetCodeRequested = false;
         setRegisterMode(false);
 
         addComponentListener(new ComponentAdapter() {
@@ -168,18 +232,16 @@ public class LoginPage extends JPanel {
         JPanel content = new JPanel();
         content.setOpaque(false);
         content.setLayout(new BoxLayout(content, BoxLayout.Y_AXIS));
-        content.setBorder(new EmptyBorder(6, 8, 6, 8));
-
-        content.add(createBadge());
-        content.add(Box.createVerticalStrut(10));
+        content.setBorder(new EmptyBorder(10, 16, 16, 16));
+        content.setMaximumSize(new Dimension(700, Integer.MAX_VALUE));
 
         JLabel title = new JLabel("Pin Button Maker");
-        title.setFont(new Font("SansSerif", Font.BOLD, 45));
-        title.setForeground(new Color(33, 38, 51));
+        title.setFont(new Font("SansSerif", Font.BOLD, 48));
+        title.setForeground(new Color(36, 43, 60));
         title.setAlignmentX(Component.CENTER_ALIGNMENT);
         content.add(title);
 
-        content.add(Box.createVerticalStrut(6));
+        content.add(Box.createVerticalStrut(8));
 
         JLabel subtitle = new JLabel("Sign in to save designs per account and reset passwords by email.");
         subtitle.setFont(new Font("SansSerif", Font.PLAIN, 14));
@@ -191,16 +253,12 @@ public class LoginPage extends JPanel {
         return content;
     }
 
-    private JComponent createBadge() {
-        return new CircleBadge();
-    }
-
     private RoundedPanel createCardPanel() {
         RoundedPanel panel = new RoundedPanel(18, CARD_BG, CARD_BORDER);
         panel.setLayout(new BoxLayout(panel, BoxLayout.Y_AXIS));
-        panel.setBorder(new EmptyBorder(18, 20, 18, 20));
-        panel.setPreferredSize(new Dimension(500, 500));
-        panel.setMaximumSize(new Dimension(560, 620));
+        panel.setBorder(new EmptyBorder(18, 20, 16, 20));
+        panel.setPreferredSize(new Dimension(590, 420));
+        panel.setMaximumSize(new Dimension(650, 650));
         panel.setAlignmentX(Component.CENTER_ALIGNMENT);
         return panel;
     }
@@ -262,6 +320,18 @@ public class LoginPage extends JPanel {
         return button;
     }
 
+    private JButton createDialogPasswordToggleButton(JPasswordField field) {
+        char defaultEchoChar = field.getEchoChar();
+        JButton button = createLinkButton("Show");
+        button.setFont(new Font("SansSerif", Font.BOLD, 12));
+        button.addActionListener(event -> {
+            boolean visible = field.getEchoChar() == (char) 0;
+            field.setEchoChar(visible ? defaultEchoChar : (char) 0);
+            button.setText(visible ? "Show" : "Hide");
+        });
+        return button;
+    }
+
     private JButton createLinkButton(String text) {
         JButton button = new JButton(text);
         button.setBorderPainted(false);
@@ -283,23 +353,6 @@ public class LoginPage extends JPanel {
         return button;
     }
 
-    private JButton createGoogleButton() {
-        JButton button = new JButton("Google");
-        button.setFont(new Font("SansSerif", Font.BOLD, 15));
-        button.setFocusPainted(false);
-        button.setContentAreaFilled(true);
-        button.setBackground(Color.WHITE);
-        button.setForeground(new Color(37, 44, 59));
-        button.setBorder(BorderFactory.createCompoundBorder(
-            BorderFactory.createLineBorder(new Color(208, 213, 223)),
-            BorderFactory.createEmptyBorder(10, 18, 10, 18)
-        ));
-        button.setAlignmentX(Component.LEFT_ALIGNMENT);
-        button.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
-        button.addActionListener(event -> handleGoogleAuth());
-        return button;
-    }
-
     private JButton createFooterActionButton() {
         JButton button = createLinkButton("Sign up");
         button.setFont(new Font("SansSerif", Font.BOLD, 14));
@@ -307,50 +360,133 @@ public class LoginPage extends JPanel {
         return button;
     }
 
+    private JLabel createStatusLabel() {
+        JLabel label = new JLabel(" ");
+        label.setForeground(STATUS_ERROR);
+        label.setAlignmentX(Component.LEFT_ALIGNMENT);
+        label.setVisible(false);
+        return label;
+    }
+
+    private RoundedPrimaryButton createResetActionButton() {
+        RoundedPrimaryButton button = new RoundedPrimaryButton("Send Reset Code  ->");
+        button.setForeground(Color.WHITE);
+        button.setBackground(PRIMARY_BLUE);
+        button.setHoverBackground(PRIMARY_BLUE_HOVER);
+        button.setAlignmentX(Component.LEFT_ALIGNMENT);
+        button.addActionListener(event -> handleResetAction());
+        return button;
+    }
+
+    private JButton createResetBackButton() {
+        JButton button = createLinkButton("Back to sign in");
+        button.setFont(new Font("SansSerif", Font.BOLD, 14));
+        button.setAlignmentX(Component.LEFT_ALIGNMENT);
+        button.addActionListener(event -> showAuthFlow(false));
+        return button;
+    }
+
+    private JPanel createAuthContentPanel() {
+        JPanel panel = new JPanel();
+        panel.setOpaque(false);
+        panel.setLayout(new BoxLayout(panel, BoxLayout.Y_AXIS));
+        panel.setAlignmentX(Component.LEFT_ALIGNMENT);
+
+        panel.add(authStatusLabel);
+        panel.add(Box.createVerticalStrut(6));
+        panel.add(createFieldLabel("Email"));
+        panel.add(Box.createVerticalStrut(6));
+        panel.add(emailRow);
+        panel.add(Box.createVerticalStrut(8));
+        panel.add(createFieldLabel("Password"));
+        panel.add(Box.createVerticalStrut(6));
+        panel.add(passwordRow);
+        panel.add(confirmPasswordTopSpacer);
+        panel.add(confirmPasswordLabel);
+        panel.add(confirmPasswordFieldSpacer);
+        panel.add(confirmPasswordRow);
+        panel.add(Box.createVerticalStrut(4));
+        panel.add(forgotPasswordRow);
+        panel.add(Box.createVerticalStrut(8));
+        panel.add(submitButton);
+        panel.add(Box.createVerticalGlue());
+        return panel;
+    }
+
+    private JPanel createResetContentPanel() {
+        JPanel panel = new JPanel();
+        panel.setOpaque(false);
+        panel.setLayout(new BoxLayout(panel, BoxLayout.Y_AXIS));
+        panel.setAlignmentX(Component.LEFT_ALIGNMENT);
+
+        JLabel title = new JLabel("Reset Your Password");
+        title.setFont(new Font("SansSerif", Font.BOLD, 22));
+        title.setForeground(new Color(24, 31, 46));
+        title.setAlignmentX(Component.LEFT_ALIGNMENT);
+
+        JLabel help = new JLabel("Use the same form to request a reset code and set a new password.");
+        help.setFont(new Font("SansSerif", Font.PLAIN, 13));
+        help.setForeground(MUTED_TEXT);
+        help.setAlignmentX(Component.LEFT_ALIGNMENT);
+
+        panel.add(title);
+        panel.add(Box.createVerticalStrut(6));
+        panel.add(help);
+        panel.add(Box.createVerticalStrut(10));
+        panel.add(resetStatusLabel);
+        panel.add(Box.createVerticalStrut(8));
+        panel.add(createFieldLabel("Email"));
+        panel.add(Box.createVerticalStrut(6));
+        panel.add(resetEmailRow);
+        panel.add(resetCodeTopSpacer);
+        panel.add(resetCodeLabel);
+        panel.add(resetCodeFieldSpacer);
+        panel.add(resetCodeRow);
+        panel.add(resetNewPasswordTopSpacer);
+        panel.add(resetNewPasswordLabel);
+        panel.add(resetNewPasswordFieldSpacer);
+        panel.add(resetNewPasswordRow);
+        panel.add(resetConfirmPasswordTopSpacer);
+        panel.add(resetConfirmPasswordLabel);
+        panel.add(resetConfirmPasswordFieldSpacer);
+        panel.add(resetConfirmPasswordRow);
+        panel.add(Box.createVerticalStrut(12));
+        panel.add(resetActionButton);
+        panel.add(Box.createVerticalStrut(10));
+        panel.add(resetBackButton);
+        panel.add(Box.createVerticalGlue());
+        return panel;
+    }
+
     private void layoutCard() {
-        cardPanel.add(createSegmentControl());
-        cardPanel.add(Box.createVerticalStrut(12));
-        cardPanel.add(createFieldLabel("Email"));
-        cardPanel.add(Box.createVerticalStrut(6));
-        cardPanel.add(emailRow);
+        formContentPanel.add(authContentPanel, FORM_AUTH);
+        formContentPanel.add(resetContentPanel, FORM_RESET);
+        formContentPanel.setAlignmentX(Component.LEFT_ALIGNMENT);
+
+        cardPanel.add(segmentControlPanel);
         cardPanel.add(Box.createVerticalStrut(10));
-        cardPanel.add(createFieldLabel("Password"));
-        cardPanel.add(Box.createVerticalStrut(6));
-        cardPanel.add(passwordRow);
-        cardPanel.add(confirmPasswordTopSpacer);
-        cardPanel.add(confirmPasswordLabel);
-        cardPanel.add(confirmPasswordFieldSpacer);
-        cardPanel.add(confirmPasswordRow);
-        cardPanel.add(Box.createVerticalStrut(4));
-        cardPanel.add(forgotPasswordRow);
-        cardPanel.add(Box.createVerticalStrut(10));
-        cardPanel.add(submitButton);
-        cardPanel.add(Box.createVerticalStrut(12));
-        cardPanel.add(createDividerRow());
-        cardPanel.add(Box.createVerticalStrut(12));
-        cardPanel.add(googleButton);
+        cardPanel.add(formContentPanel);
 
         forgotPasswordButton.addActionListener(event -> handleForgotPassword());
     }
 
     private void layoutFooter(JPanel contentPanel) {
-        JPanel footer = new JPanel();
-        footer.setOpaque(false);
-        footer.setLayout(new BoxLayout(footer, BoxLayout.X_AXIS));
-        footer.setAlignmentX(Component.CENTER_ALIGNMENT);
+        footerPanel.setOpaque(false);
+        footerPanel.setLayout(new BoxLayout(footerPanel, BoxLayout.X_AXIS));
+        footerPanel.setAlignmentX(Component.CENTER_ALIGNMENT);
 
         footerPrefixLabel.setFont(new Font("SansSerif", Font.PLAIN, 14));
         footerPrefixLabel.setForeground(MUTED_TEXT);
 
-        footer.add(footerPrefixLabel);
-        footer.add(Box.createHorizontalStrut(4));
-        footer.add(footerActionButton);
+        footerPanel.add(footerPrefixLabel);
+        footerPanel.add(Box.createHorizontalStrut(4));
+        footerPanel.add(footerActionButton);
 
-        contentPanel.add(Box.createVerticalStrut(12));
-        contentPanel.add(footer);
+        contentPanel.add(Box.createVerticalStrut(14));
+        contentPanel.add(footerPanel);
     }
 
-    private RoundedPanel createSegmentControl() {
+    private JComponent createSegmentControl() {
         RoundedPanel segmentPanel = new RoundedPanel(12, SEGMENT_BG, SEGMENT_BG);
         segmentPanel.setLayout(new GridLayout(1, 2, 6, 0));
         segmentPanel.setBorder(new EmptyBorder(4, 4, 4, 4));
@@ -375,39 +511,12 @@ public class LoginPage extends JPanel {
         return row;
     }
 
-    private JPanel createDividerRow() {
-        JPanel row = new JPanel();
-        row.setOpaque(false);
-        row.setLayout(new BoxLayout(row, BoxLayout.X_AXIS));
-        row.setAlignmentX(Component.LEFT_ALIGNMENT);
-
-        JPanel leftLine = createDividerLine();
-        JPanel rightLine = createDividerLine();
-
-        JLabel text = new JLabel("or continue with");
-        text.setFont(new Font("SansSerif", Font.PLAIN, 13));
-        text.setForeground(MUTED_TEXT);
-
-        row.add(leftLine);
-        row.add(Box.createHorizontalStrut(10));
-        row.add(text);
-        row.add(Box.createHorizontalStrut(10));
-        row.add(rightLine);
-
-        return row;
-    }
-
-    private JPanel createDividerLine() {
-        JPanel panel = new JPanel();
-        panel.setOpaque(true);
-        panel.setBackground(new Color(209, 214, 224));
-        panel.setMaximumSize(new Dimension(Integer.MAX_VALUE, 1));
-        panel.setPreferredSize(new Dimension(40, 1));
-        return panel;
-    }
-
     private void setRegisterMode(boolean registerMode) {
         this.registerMode = registerMode;
+        if (resetModeActive) {
+            return;
+        }
+
         applyTabStyle(signInTabButton, !registerMode);
         applyTabStyle(registerTabButton, registerMode);
 
@@ -430,6 +539,80 @@ public class LoginPage extends JPanel {
         applyResponsiveLayout();
     }
 
+    private void showAuthFlow(boolean showResetSuccessMessage) {
+        resetModeActive = false;
+        formCardLayout.show(formContentPanel, FORM_AUTH);
+        segmentControlPanel.setVisible(true);
+        footerPanel.setVisible(true);
+        setRegisterMode(false);
+        clearResetStatusMessage();
+
+        if (showResetSuccessMessage) {
+            showAuthStatusMessage("Password updated. Sign in with your new password.", STATUS_SUCCESS);
+        } else {
+            clearAuthStatusMessage();
+        }
+    }
+
+    private void showResetFlow(String prefilledEmail) {
+        resetModeActive = true;
+        resetCodeRequested = false;
+        formCardLayout.show(formContentPanel, FORM_RESET);
+        segmentControlPanel.setVisible(false);
+        footerPanel.setVisible(false);
+
+        resetEmailField.setText(prefilledEmail == null ? "" : prefilledEmail.trim());
+        resetCodeField.setText("");
+        resetNewPasswordField.setText("");
+        resetConfirmPasswordField.setText("");
+        resetNewPasswordField.setEchoChar(defaultPasswordEcho);
+        resetConfirmPasswordField.setEchoChar(defaultPasswordEcho);
+        resetActionButton.setText("Send Reset Code  ->");
+        updateResetStepVisibility();
+        clearResetStatusMessage();
+        clearAuthStatusMessage();
+        applyResponsiveLayout();
+    }
+
+    private void updateResetStepVisibility() {
+        resetEmailField.setEnabled(!resetCodeRequested);
+        resetCodeTopSpacer.setVisible(resetCodeRequested);
+        resetCodeLabel.setVisible(resetCodeRequested);
+        resetCodeFieldSpacer.setVisible(resetCodeRequested);
+        resetCodeRow.setVisible(resetCodeRequested);
+        resetNewPasswordTopSpacer.setVisible(resetCodeRequested);
+        resetNewPasswordLabel.setVisible(resetCodeRequested);
+        resetNewPasswordFieldSpacer.setVisible(resetCodeRequested);
+        resetNewPasswordRow.setVisible(resetCodeRequested);
+        resetConfirmPasswordTopSpacer.setVisible(resetCodeRequested);
+        resetConfirmPasswordLabel.setVisible(resetCodeRequested);
+        resetConfirmPasswordFieldSpacer.setVisible(resetCodeRequested);
+        resetConfirmPasswordRow.setVisible(resetCodeRequested);
+        resetActionButton.setText(resetCodeRequested ? "Change Password  ->" : "Send Reset Code  ->");
+    }
+
+    private void showAuthStatusMessage(String message, Color color) {
+        authStatusLabel.setText(message);
+        authStatusLabel.setForeground(color);
+        authStatusLabel.setVisible(message != null && !message.trim().isEmpty());
+    }
+
+    private void clearAuthStatusMessage() {
+        authStatusLabel.setText(" ");
+        authStatusLabel.setVisible(false);
+    }
+
+    private void showResetStatusMessage(String message, Color color) {
+        resetStatusLabel.setText(message);
+        resetStatusLabel.setForeground(color);
+        resetStatusLabel.setVisible(message != null && !message.trim().isEmpty());
+    }
+
+    private void clearResetStatusMessage() {
+        resetStatusLabel.setText(" ");
+        resetStatusLabel.setVisible(false);
+    }
+
     private void applyTabStyle(JButton button, boolean selected) {
         button.setForeground(selected ? TAB_SELECTED_TEXT : TAB_IDLE_TEXT);
         button.setBackground(selected ? TAB_SELECTED_BG : SEGMENT_BG);
@@ -440,52 +623,82 @@ public class LoginPage extends JPanel {
     }
 
     private void applyResponsiveLayout() {
-        int availableWidth = Math.max(380, getWidth());
-        int sidePadding = availableWidth < 640 ? 34 : 70;
-        int cardWidth = Math.max(330, Math.min(520, availableWidth - sidePadding));
+        int availableWidth = Math.max(400, getWidth());
+        int sidePadding = availableWidth < 760 ? 44 : 220;
+        int cardWidth = Math.max(340, Math.min(590, availableWidth - sidePadding));
+        Dimension segmentSize = new Dimension(cardWidth - 44, cardWidth < 390 ? 44 : 52);
+        segmentControlPanel.setPreferredSize(segmentSize);
+        segmentControlPanel.setMaximumSize(segmentSize);
 
-        int availableHeight = Math.max(520, getHeight());
-        int desiredHeight = registerMode ? 560 : 500;
-        int minHeight = registerMode ? 500 : 450;
-        int cardHeight = Math.max(minHeight, Math.min(desiredHeight, availableHeight - 170));
-
-        cardPanel.setPreferredSize(new Dimension(cardWidth, cardHeight));
-
-        int fieldHeight = cardWidth < 400 ? 40 : 46;
-        Dimension rowSize = new Dimension(cardWidth - 40, fieldHeight);
+        int fieldHeight = cardWidth < 390 ? 38 : 44;
+        Dimension rowSize = new Dimension(cardWidth - 44, fieldHeight);
         emailRow.setPreferredSize(rowSize);
         emailRow.setMaximumSize(rowSize);
         passwordRow.setPreferredSize(rowSize);
         passwordRow.setMaximumSize(rowSize);
         confirmPasswordRow.setPreferredSize(rowSize);
         confirmPasswordRow.setMaximumSize(rowSize);
+        resetEmailRow.setPreferredSize(rowSize);
+        resetEmailRow.setMaximumSize(rowSize);
+        resetCodeRow.setPreferredSize(rowSize);
+        resetCodeRow.setMaximumSize(rowSize);
+        resetNewPasswordRow.setPreferredSize(rowSize);
+        resetNewPasswordRow.setMaximumSize(rowSize);
+        resetConfirmPasswordRow.setPreferredSize(rowSize);
+        resetConfirmPasswordRow.setMaximumSize(rowSize);
 
-        Dimension forgotSize = new Dimension(cardWidth - 40, cardWidth < 400 ? 22 : 24);
+        Dimension forgotSize = new Dimension(cardWidth - 44, cardWidth < 390 ? 20 : 22);
         forgotPasswordRow.setPreferredSize(forgotSize);
         forgotPasswordRow.setMaximumSize(forgotSize);
         forgotPasswordRow.setMinimumSize(forgotSize);
 
-        int submitHeight = cardWidth < 400 ? 42 : 48;
-        Dimension submitSize = new Dimension(cardWidth - 40, submitHeight);
+        int submitHeight = cardWidth < 390 ? 40 : 44;
+        Dimension submitSize = new Dimension(cardWidth - 44, submitHeight);
         submitButton.setPreferredSize(submitSize);
         submitButton.setMaximumSize(submitSize);
+        resetActionButton.setPreferredSize(submitSize);
+        resetActionButton.setMaximumSize(submitSize);
 
-        Dimension googleSize = new Dimension(cardWidth - 40, cardWidth < 400 ? 40 : 44);
-        googleButton.setPreferredSize(googleSize);
-        googleButton.setMaximumSize(googleSize);
-
-        int tabFontSize = cardWidth < 400 ? 14 : 16;
-        int inputFontSize = cardWidth < 400 ? 13 : 15;
-        int labelFontSize = cardWidth < 400 ? 14 : 16;
-        int buttonFontSize = cardWidth < 400 ? 14 : 16;
+        int tabFontSize = cardWidth < 390 ? 13 : 15;
+        int inputFontSize = cardWidth < 390 ? 12 : 14;
+        int labelFontSize = cardWidth < 390 ? 13 : 15;
+        int buttonFontSize = cardWidth < 390 ? 13 : 15;
 
         signInTabButton.setFont(new Font("SansSerif", Font.BOLD, tabFontSize));
         registerTabButton.setFont(new Font("SansSerif", Font.BOLD, tabFontSize));
         emailField.setFont(new Font("SansSerif", Font.PLAIN, inputFontSize));
         passwordField.setFont(new Font("SansSerif", Font.PLAIN, inputFontSize));
         confirmPasswordField.setFont(new Font("SansSerif", Font.PLAIN, inputFontSize));
+        resetEmailField.setFont(new Font("SansSerif", Font.PLAIN, inputFontSize));
+        resetCodeField.setFont(new Font("SansSerif", Font.PLAIN, inputFontSize));
+        resetNewPasswordField.setFont(new Font("SansSerif", Font.PLAIN, inputFontSize));
+        resetConfirmPasswordField.setFont(new Font("SansSerif", Font.PLAIN, inputFontSize));
         forgotPasswordButton.setFont(new Font("SansSerif", Font.PLAIN, inputFontSize - 1));
         submitButton.setFont(new Font("SansSerif", Font.BOLD, buttonFontSize));
+        resetActionButton.setFont(new Font("SansSerif", Font.BOLD, buttonFontSize));
+        resetStatusLabel.setFont(new Font("SansSerif", Font.PLAIN, inputFontSize - 1));
+        authStatusLabel.setFont(new Font("SansSerif", Font.PLAIN, inputFontSize - 1));
+        resetBackButton.setFont(new Font("SansSerif", Font.BOLD, inputFontSize - 1));
+        footerPrefixLabel.setFont(new Font("SansSerif", Font.PLAIN, inputFontSize));
+        footerActionButton.setFont(new Font("SansSerif", Font.BOLD, inputFontSize));
+
+        JPanel activeFormPanel = resetModeActive ? resetContentPanel : authContentPanel;
+        Dimension activeFormSize = activeFormPanel.getPreferredSize();
+        int formWidth = cardWidth - 44;
+        int formHeight = activeFormSize.height;
+        formContentPanel.setPreferredSize(new Dimension(formWidth, formHeight));
+        formContentPanel.setMaximumSize(new Dimension(formWidth, formHeight));
+
+        int availableHeight = Math.max(540, getHeight());
+        int segmentHeight = segmentControlPanel.isVisible() ? segmentSize.height + 10 : 0;
+        Insets cardInsets = cardPanel.getInsets();
+        int preferredCardHeight = cardInsets.top + cardInsets.bottom + segmentHeight + formHeight;
+        int minCardHeight = resetModeActive
+            ? (resetCodeRequested ? 420 : 280)
+            : (registerMode ? 390 : 300);
+        int maxCardHeight = Math.max(minCardHeight, availableHeight - 140);
+        int cardHeight = Math.max(minCardHeight, Math.min(preferredCardHeight, maxCardHeight));
+        cardPanel.setPreferredSize(new Dimension(cardWidth, cardHeight));
 
         cardPanel.revalidate();
         cardPanel.repaint();
@@ -667,115 +880,55 @@ public class LoginPage extends JPanel {
     }
 
     private void handleForgotPassword() {
-        JTextField resetEmailField = new JTextField(readEmailValue());
-        resetEmailField.setColumns(24);
-
-        JPanel requestPanel = new JPanel();
-        requestPanel.setOpaque(false);
-        requestPanel.setLayout(new BoxLayout(requestPanel, BoxLayout.Y_AXIS));
-        requestPanel.add(new JLabel("Account email"));
-        requestPanel.add(Box.createVerticalStrut(6));
-        requestPanel.add(resetEmailField);
-
-        int requestChoice = JOptionPane.showConfirmDialog(
-            this,
-            requestPanel,
-            "Forgot Password",
-            JOptionPane.OK_CANCEL_OPTION,
-            JOptionPane.PLAIN_MESSAGE
-        );
-
-        if (requestChoice != JOptionPane.OK_OPTION) {
-            return;
-        }
-
-        UserAuthService.AuthResult requestResult = appState.getUserAuthService().requestPasswordReset(resetEmailField.getText());
-        if (!requestResult.isSuccess()) {
-            JOptionPane.showMessageDialog(
-                this,
-                requestResult.getMessage(),
-                "Forgot Password",
-                JOptionPane.ERROR_MESSAGE
-            );
-            return;
-        }
-
-        Utils.showInfo(this, requestResult.getMessage());
-        showResetCodeDialog(requestResult.getUserEmail());
+        showResetFlow(readEmailValue());
     }
 
-    private void showResetCodeDialog(String email) {
-        JTextField codeField = new JTextField();
-        codeField.setColumns(12);
+    private void handleResetAction() {
+        UserAuthService authService = appState.getUserAuthService();
 
-        JPasswordField newPasswordField = new JPasswordField();
-        JPasswordField confirmPasswordField = new JPasswordField();
-        char newPasswordEcho = newPasswordField.getEchoChar();
-        char confirmPasswordEcho = confirmPasswordField.getEchoChar();
-        JCheckBox showPasswordsCheck = new JCheckBox("Show passwords");
-        showPasswordsCheck.setOpaque(false);
-        showPasswordsCheck.addActionListener(event -> {
-            char echo = showPasswordsCheck.isSelected() ? (char) 0 : newPasswordEcho;
-            newPasswordField.setEchoChar(echo);
-            confirmPasswordField.setEchoChar(showPasswordsCheck.isSelected() ? (char) 0 : confirmPasswordEcho);
-        });
+        if (!resetCodeRequested) {
+            UserAuthService.AuthResult requestResult = authService.requestPasswordReset(resetEmailField.getText());
+            if (!requestResult.isSuccess()) {
+                showResetStatusMessage(requestResult.getMessage(), STATUS_ERROR);
+                return;
+            }
 
-        JPanel resetPanel = new JPanel();
-        resetPanel.setOpaque(false);
-        resetPanel.setLayout(new BoxLayout(resetPanel, BoxLayout.Y_AXIS));
-        resetPanel.add(new JLabel("Reset code"));
-        resetPanel.add(Box.createVerticalStrut(6));
-        resetPanel.add(codeField);
-        resetPanel.add(Box.createVerticalStrut(10));
-        resetPanel.add(new JLabel("New password"));
-        resetPanel.add(Box.createVerticalStrut(6));
-        resetPanel.add(newPasswordField);
-        resetPanel.add(Box.createVerticalStrut(10));
-        resetPanel.add(new JLabel("Confirm new password"));
-        resetPanel.add(Box.createVerticalStrut(6));
-        resetPanel.add(confirmPasswordField);
-        resetPanel.add(Box.createVerticalStrut(10));
-        resetPanel.add(showPasswordsCheck);
-
-        int resetChoice = JOptionPane.showConfirmDialog(
-            this,
-            resetPanel,
-            "Enter Reset Code",
-            JOptionPane.OK_CANCEL_OPTION,
-            JOptionPane.PLAIN_MESSAGE
-        );
-
-        if (resetChoice != JOptionPane.OK_OPTION) {
+            resetCodeRequested = true;
+            resetEmailField.setText(requestResult.getUserEmail());
+            updateResetStepVisibility();
+            showResetStatusMessage("Reset code sent. Enter it below and choose a new password.", STATUS_SUCCESS);
+            applyResponsiveLayout();
+            resetCodeField.requestFocusInWindow();
             return;
         }
 
-        String newPassword = new String(newPasswordField.getPassword()).trim();
-        String confirmedPassword = new String(confirmPasswordField.getPassword()).trim();
+        String email = Utils.normalizeOrDefault(resetEmailField.getText(), "");
+        String resetCode = Utils.normalizeOrDefault(resetCodeField.getText(), "");
+        String newPassword = new String(resetNewPasswordField.getPassword()).trim();
+        String confirmedPassword = new String(resetConfirmPasswordField.getPassword()).trim();
+
+        if (resetCode.isEmpty()) {
+            showResetStatusMessage("Enter the reset code from your email.", STATUS_ERROR);
+            return;
+        }
+        if (newPassword.isEmpty()) {
+            showResetStatusMessage("Enter a new password.", STATUS_ERROR);
+            return;
+        }
         if (!newPassword.equals(confirmedPassword)) {
-            JOptionPane.showMessageDialog(
-                this,
-                "The new password and confirmation do not match.",
-                "Enter Reset Code",
-                JOptionPane.ERROR_MESSAGE
-            );
+            showResetStatusMessage("The new password and confirmation do not match.", STATUS_ERROR);
             return;
         }
 
-        UserAuthService.AuthResult resetResult = appState.getUserAuthService().resetPassword(email, codeField.getText(), newPassword);
+        UserAuthService.AuthResult resetResult = authService.resetPassword(email, resetCode, newPassword);
         if (!resetResult.isSuccess()) {
-            JOptionPane.showMessageDialog(
-                this,
-                resetResult.getMessage(),
-                "Enter Reset Code",
-                JOptionPane.ERROR_MESSAGE
-            );
+            showResetStatusMessage(resetResult.getMessage(), STATUS_ERROR);
             return;
         }
 
-        setRegisterMode(false);
         setEmailFieldValue(email);
         setPasswordPlaceholder();
-        Utils.showInfo(this, resetResult.getMessage());
+        showAuthFlow(true);
     }
 
     private void setEmailFieldValue(String value) {
@@ -834,23 +987,6 @@ public class LoginPage extends JPanel {
 
         appState.setAuthenticatedUser(result.getUserId(), result.getUserEmail());
         Utils.showInfo(this, registerMode ? "Registered: " + result.getUserEmail() : "Signed in: " + result.getUserEmail());
-        router.showHome();
-    }
-
-    private void handleGoogleAuth() {
-        UserAuthService.AuthResult result = appState.getUserAuthService().signInWithMockProvider("google.user@pincraft.local");
-        if (!result.isSuccess()) {
-            JOptionPane.showMessageDialog(
-                this,
-                result.getMessage(),
-                "Google Sign-In",
-                JOptionPane.ERROR_MESSAGE
-            );
-            return;
-        }
-
-        appState.setAuthenticatedUser(result.getUserId(), result.getUserEmail());
-        Utils.showInfo(this, "Google sign-in successful (mock).");
         router.showHome();
     }
 
