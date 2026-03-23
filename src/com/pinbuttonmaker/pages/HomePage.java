@@ -24,11 +24,15 @@ import java.util.List;
 import javax.swing.BorderFactory;
 import javax.swing.Box;
 import javax.swing.BoxLayout;
+import javax.swing.JCheckBox;
 import javax.swing.ImageIcon;
 import javax.swing.JButton;
 import javax.swing.JLabel;
+import javax.swing.JMenuItem;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
+import javax.swing.JPasswordField;
+import javax.swing.JPopupMenu;
 import javax.swing.JScrollPane;
 import javax.swing.SwingConstants;
 import javax.swing.SwingUtilities;
@@ -39,6 +43,7 @@ import com.pinbuttonmaker.AppRouter;
 import com.pinbuttonmaker.AppState;
 import com.pinbuttonmaker.data.ProjectData;
 import com.pinbuttonmaker.db.ProjectStorageService;
+import com.pinbuttonmaker.db.UserAuthService;
 import com.pinbuttonmaker.ui.components.ButtonPreviewPanel;
 import com.pinbuttonmaker.ui.components.CustomButton;
 
@@ -146,8 +151,162 @@ public class HomePage extends JPanel {
             BorderFactory.createEmptyBorder(6, 10, 6, 10)
         ));
         button.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
-        button.addActionListener(event -> router.showLogin());
+        button.addActionListener(event -> showProfileMenu());
         return button;
+    }
+
+    private void showProfileMenu() {
+        if (!appState.isAuthenticated()) {
+            router.showLogin();
+            return;
+        }
+
+        JPopupMenu menu = new JPopupMenu();
+
+        JMenuItem accountItem = createProfileMenuItem(appState.getCurrentUser(), false);
+        JMenuItem changePasswordItem = createProfileMenuItem("Change Password", true);
+        JMenuItem logoutItem = createProfileMenuItem("Logout", true);
+
+        changePasswordItem.addActionListener(event -> handleChangePassword());
+        logoutItem.addActionListener(event -> handleLogout());
+
+        menu.add(accountItem);
+        menu.addSeparator();
+        menu.add(changePasswordItem);
+        menu.add(logoutItem);
+        menu.show(profileButton, 0, profileButton.getHeight());
+    }
+
+    private JMenuItem createProfileMenuItem(String text, boolean enabled) {
+        JMenuItem item = new JMenuItem(text);
+        item.setEnabled(enabled);
+        item.setFont(new Font("SansSerif", enabled ? Font.BOLD : Font.PLAIN, 13));
+        return item;
+    }
+
+    private void handleLogout() {
+        int choice = JOptionPane.showConfirmDialog(
+            this,
+            "Log out of " + appState.getCurrentUser() + "?",
+            "Logout",
+            JOptionPane.YES_NO_OPTION,
+            JOptionPane.QUESTION_MESSAGE
+        );
+
+        if (choice != JOptionPane.YES_OPTION) {
+            return;
+        }
+
+        appState.logout();
+        router.showLogin();
+    }
+
+    private void handleChangePassword() {
+        Long currentUserId = appState.getCurrentUserId();
+        if (currentUserId == null) {
+            router.showLogin();
+            return;
+        }
+
+        JPasswordField currentPasswordField = new JPasswordField();
+        JPasswordField newPasswordField = new JPasswordField();
+        JPasswordField confirmPasswordField = new JPasswordField();
+        JCheckBox showPasswordsCheck = new JCheckBox("Show passwords");
+
+        char currentPasswordEcho = currentPasswordField.getEchoChar();
+        showPasswordsCheck.setOpaque(false);
+        showPasswordsCheck.addActionListener(event -> {
+            char echoChar = showPasswordsCheck.isSelected() ? (char) 0 : currentPasswordEcho;
+            currentPasswordField.setEchoChar(echoChar);
+            newPasswordField.setEchoChar(echoChar);
+            confirmPasswordField.setEchoChar(echoChar);
+        });
+
+        JPanel panel = new JPanel(new GridBagLayout());
+        panel.setOpaque(false);
+
+        GridBagConstraints constraints = new GridBagConstraints();
+        constraints.gridx = 0;
+        constraints.gridy = 0;
+        constraints.anchor = GridBagConstraints.WEST;
+        constraints.insets = new Insets(0, 0, 6, 0);
+
+        panel.add(new JLabel("Current Password"), constraints);
+        constraints.gridy++;
+        constraints.fill = GridBagConstraints.HORIZONTAL;
+        constraints.weightx = 1.0;
+        currentPasswordField.setPreferredSize(new Dimension(220, 30));
+        panel.add(currentPasswordField, constraints);
+
+        constraints.gridy++;
+        constraints.fill = GridBagConstraints.NONE;
+        constraints.weightx = 0;
+        constraints.insets = new Insets(10, 0, 6, 0);
+        panel.add(new JLabel("New Password"), constraints);
+        constraints.gridy++;
+        constraints.fill = GridBagConstraints.HORIZONTAL;
+        constraints.weightx = 1.0;
+        constraints.insets = new Insets(0, 0, 0, 0);
+        newPasswordField.setPreferredSize(new Dimension(220, 30));
+        panel.add(newPasswordField, constraints);
+
+        constraints.gridy++;
+        constraints.fill = GridBagConstraints.NONE;
+        constraints.weightx = 0;
+        constraints.insets = new Insets(10, 0, 6, 0);
+        panel.add(new JLabel("Confirm New Password"), constraints);
+        constraints.gridy++;
+        constraints.fill = GridBagConstraints.HORIZONTAL;
+        constraints.weightx = 1.0;
+        constraints.insets = new Insets(0, 0, 0, 0);
+        confirmPasswordField.setPreferredSize(new Dimension(220, 30));
+        panel.add(confirmPasswordField, constraints);
+
+        constraints.gridy++;
+        constraints.fill = GridBagConstraints.NONE;
+        constraints.weightx = 0;
+        constraints.insets = new Insets(10, 0, 0, 0);
+        panel.add(showPasswordsCheck, constraints);
+
+        while (true) {
+            int option = JOptionPane.showConfirmDialog(
+                this,
+                panel,
+                "Change Password",
+                JOptionPane.OK_CANCEL_OPTION,
+                JOptionPane.PLAIN_MESSAGE
+            );
+
+            if (option != JOptionPane.OK_OPTION) {
+                return;
+            }
+
+            String currentPassword = new String(currentPasswordField.getPassword()).trim();
+            String newPassword = new String(newPasswordField.getPassword()).trim();
+            String confirmPassword = new String(confirmPasswordField.getPassword()).trim();
+
+            if (currentPassword.isEmpty()) {
+                JOptionPane.showMessageDialog(this, "Enter your current password.", "Change Password", JOptionPane.ERROR_MESSAGE);
+                continue;
+            }
+            if (newPassword.isEmpty()) {
+                JOptionPane.showMessageDialog(this, "Enter a new password.", "Change Password", JOptionPane.ERROR_MESSAGE);
+                continue;
+            }
+            if (!newPassword.equals(confirmPassword)) {
+                JOptionPane.showMessageDialog(this, "The new password and confirmation do not match.", "Change Password", JOptionPane.ERROR_MESSAGE);
+                continue;
+            }
+
+            UserAuthService.AuthResult result = appState.getUserAuthService().changePassword(currentUserId, currentPassword, newPassword);
+            if (!result.isSuccess()) {
+                JOptionPane.showMessageDialog(this, result.getMessage(), "Change Password", JOptionPane.ERROR_MESSAGE);
+                continue;
+            }
+
+            JOptionPane.showMessageDialog(this, result.getMessage(), "Change Password", JOptionPane.INFORMATION_MESSAGE);
+            return;
+        }
     }
 
     private JScrollPane createBodyPanel() {

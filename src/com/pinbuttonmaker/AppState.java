@@ -59,6 +59,13 @@ public class AppState {
         refreshSavedProjects();
     }
 
+    public void logout() {
+        this.currentUserId = null;
+        this.currentUser = "Guest";
+        this.currentProject = new ProjectData("Untitled Project");
+        this.savedProjects.clear();
+    }
+
     public DatabaseManager getDatabaseManager() {
         return databaseManager;
     }

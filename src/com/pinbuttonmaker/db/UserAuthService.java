@@ -213,6 +213,48 @@ public class UserAuthService {
         }
     }
 
+    public AuthResult changePassword(long userId, String currentPassword, String newPassword) {
+        String normalizedCurrentPassword = normalizePassword(currentPassword);
+        String normalizedNewPassword = normalizePassword(newPassword);
+
+        if (!databaseManager.isAvailable()) {
+            return AuthResult.failure(databaseManager.getStatusMessage());
+        }
+        if (userId <= 0) {
+            return AuthResult.failure("Sign in again to change your password.");
+        }
+        if (normalizedCurrentPassword.isEmpty()) {
+            return AuthResult.failure("Enter your current password.");
+        }
+        if (normalizedNewPassword.isEmpty()) {
+            return AuthResult.failure("Enter a new password.");
+        }
+
+        try (Connection connection = databaseManager.openConnection()) {
+            UserRecord user = findUserRecordById(connection, userId);
+            if (user == null) {
+                return AuthResult.failure("Sign in again to change your password.");
+            }
+
+            if (!hashPassword(normalizedCurrentPassword).equals(user.passwordHash)) {
+                return AuthResult.failure("Current password is incorrect.");
+            }
+
+            try (PreparedStatement update = connection.prepareStatement(
+                "UPDATE users SET password_hash = ? WHERE id = ?"
+            )) {
+                update.setString(1, hashPassword(normalizedNewPassword));
+                update.setLong(2, user.id);
+                update.executeUpdate();
+            }
+
+            clearPasswordResetCodes(connection, user.id);
+            return AuthResult.success(user.id, user.email, "Password changed successfully.");
+        } catch (SQLException exception) {
+            return AuthResult.failure("Unable to change the password: " + exception.getMessage());
+        }
+    }
+
     public boolean isDatabaseReady() {
         return databaseManager.isAvailable();
     }
@@ -226,6 +268,25 @@ public class UserAuthService {
             "SELECT id, email, password_hash FROM users WHERE email = ? LIMIT 1"
         )) {
             query.setString(1, email);
+            try (ResultSet resultSet = query.executeQuery()) {
+                if (!resultSet.next()) {
+                    return null;
+                }
+
+                return new UserRecord(
+                    resultSet.getLong("id"),
+                    resultSet.getString("email"),
+                    resultSet.getString("password_hash")
+                );
+            }
+        }
+    }
+
+    private UserRecord findUserRecordById(Connection connection, long userId) throws SQLException {
+        try (PreparedStatement query = connection.prepareStatement(
+            "SELECT id, email, password_hash FROM users WHERE id = ? LIMIT 1"
+        )) {
+            query.setLong(1, userId);
             try (ResultSet resultSet = query.executeQuery()) {
                 if (!resultSet.next()) {
                     return null;
