@@ -50,6 +50,7 @@ import com.pinbuttonmaker.util.Utils;
 
 public class PrintPage extends JPanel {
     private static final int PRINTABLE_PREVIEW_RESOLUTION = 720;
+    private static final double PRINT_SIZE_EXTRA_INCHES = 1.0 / 2.54;
 
     private static final Color PAGE_BG = new Color(243, 246, 251);
     private static final Color PANEL_BG = new Color(250, 252, 255);
@@ -64,14 +65,15 @@ public class PrintPage extends JPanel {
     };
 
     private static final ButtonSizeOption[] BUTTON_SIZE_OPTIONS = {
-        new ButtonSizeOption("1\"", 1.00, 96, 0.30, 0.35, 0.18, 0.20),
-        new ButtonSizeOption("1.25\"", 1.25, 120, 0.32, 0.38, 0.20, 0.24),
-        new ButtonSizeOption("1.5\"", 1.50, 144, 0.34, 0.42, 0.24, 0.28),
-        new ButtonSizeOption("2\"", 2.00, 192, 0.35, 0.50, 0.28, 0.42),
-        new ButtonSizeOption("2.25\"", 2.25, 216, 0.36, 0.62, 0.30, 0.80),
-        new ButtonSizeOption("2.5\"", 2.50, 240, 0.38, 0.65, 0.32, 0.85),
-        new ButtonSizeOption("3\"", 3.00, 288, 0.42, 0.72, 0.36, 1.00),
-        new ButtonSizeOption("6\"", 6.00, 576, 0.55, 0.90, 0.50, 1.10)
+        // Tuned for a 1 cm bleed so the spacing on Short/Letter paper matches the reference export more closely.
+        new ButtonSizeOption("1\"", 1.00, 96, 0.20, 0.26, 0.48, 0.56),
+        new ButtonSizeOption("1.25\"", 1.25, 120, 0.20, 0.26, 0.50, 0.60),
+        new ButtonSizeOption("1.5\"", 1.50, 144, 0.20, 0.28, 0.53, 0.66),
+        new ButtonSizeOption("2\"", 2.00, 192, 0.22, 0.30, 0.56, 0.72),
+        new ButtonSizeOption("2.25\"", 2.25, 216, 0.24, 0.32, 0.58, 0.78),
+        new ButtonSizeOption("2.5\"", 2.50, 240, 0.24, 0.34, 0.62, 0.86),
+        new ButtonSizeOption("3\"", 3.00, 288, 0.26, 0.36, 0.68, 0.96),
+        new ButtonSizeOption("6\"", 6.00, 576, 0.30, 0.40, 0.80, 1.20)
     };
 
     private final AppRouter router;
@@ -155,9 +157,14 @@ public class PrintPage extends JPanel {
         JLabel settingsTitle = new JLabel("Print Settings");
         settingsTitle.setFont(new Font("SansSerif", Font.BOLD, 18));
         settingsTitle.setForeground(TEXT_PRIMARY);
+        settingsTitle.setAlignmentX(Component.CENTER_ALIGNMENT);
+        settingsTitle.setHorizontalAlignment(SwingConstants.CENTER);
 
         paperSizeCombo = new JComboBox<>(PAPER_SIZE_OPTIONS);
-        paperSizeCombo.addActionListener(event -> refreshPreviewState());
+        paperSizeCombo.addActionListener(event -> {
+            refreshPreviewState();
+            refreshGallery();
+        });
 
         buttonSizeCombo = new JComboBox<>(BUTTON_SIZE_OPTIONS);
         buttonSizeCombo.addActionListener(event -> {
@@ -276,11 +283,12 @@ public class PrintPage extends JPanel {
     private void refreshPreviewState() {
         PaperSizeOption paper = getSelectedPaperOption();
         ButtonSizeOption button = getSelectedButtonOption();
+        double printCutDiameterInches = getPrintCutDiameterInches(button);
 
         paperPreviewPanel.setPaperSize(paper.paperLabel, paper.widthInches, paper.heightInches);
         paperPreviewPanel.setButtonLayout(
-            button.displayLabel,
-            button.inches,
+            button.displayLabel + " + 1 cm",
+            printCutDiameterInches,
             button.horizontalMarginInches,
             button.verticalMarginInches,
             button.horizontalGapInches,
@@ -290,15 +298,25 @@ public class PrintPage extends JPanel {
 
         PaperPreviewPanel.LayoutInfo layout = paperPreviewPanel.getLayoutInfo();
         previewTitleLabel.setText(paper.paperLabel + " Paper Preview");
-        fitSummaryLabel.setText("Fits " + layout.getTotalPins() + " pins (" + layout.getColumns() + " x " + layout.getRows() + ") at " + button.displayLabel);
+        fitSummaryLabel.setText(
+            "Fits "
+                + layout.getTotalPins()
+                + " pins ("
+                + layout.getColumns()
+                + " x "
+                + layout.getRows()
+                + ") at "
+                + button.displayLabel
+                + " + 1 cm size + 1 cm bleed"
+        );
     }
 
     private void registerLifecycleRefresh() {
         addHierarchyListener(event -> {
             long flags = event.getChangeFlags();
             if ((flags & HierarchyEvent.SHOWING_CHANGED) != 0 && isShowing()) {
-                refreshGallery();
                 refreshPreviewState();
+                refreshGallery();
             }
         });
     }
@@ -370,17 +388,8 @@ public class PrintPage extends JPanel {
     private List<ProjectData> getPrintableProjectsForGallery() {
         List<ProjectData> projects = new ArrayList<>();
 
-        ProjectData current = appState.getCurrentProject();
-        if (current != null && !getRenderableLayers(current).isEmpty()) {
-            projects.add(current);
-        }
-
         for (ProjectData saved : appState.getSavedProjects()) {
             if (saved == null || getRenderableLayers(saved).isEmpty()) {
-                continue;
-            }
-
-            if (current != null && current.getProjectId() != null && current.getProjectId().equals(saved.getProjectId())) {
                 continue;
             }
 
@@ -517,7 +526,20 @@ public class PrintPage extends JPanel {
     }
 
     private BufferedImage createProjectPinPreview(ProjectData project, int size) {
-        return ButtonPreviewPanel.createPrintableArtworkImage(project, size);
+        ButtonSizeOption button = getSelectedButtonOption();
+        return ButtonPreviewPanel.createPrintableArtworkImage(
+            project,
+            size,
+            getPrintCutDiameterInches(button),
+            paperPreviewPanel.getBleedExtraInches()
+        );
+    }
+
+    private double getPrintCutDiameterInches(ButtonSizeOption button) {
+        if (button == null) {
+            return PRINT_SIZE_EXTRA_INCHES;
+        }
+        return button.inches + PRINT_SIZE_EXTRA_INCHES;
     }
 
     private void drawTextLayerPreview(Graphics2D g2, LayerData layer, int x, int y, int diameter) {

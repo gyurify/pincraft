@@ -199,22 +199,37 @@ public class ButtonPreviewPanel extends JPanel {
         return image;
     }
 
-    public static BufferedImage createPrintableArtworkImage(ProjectData projectData, int size) {
-        int targetButtonSize = Math.max(96, size);
+    public static BufferedImage createPrintableArtworkImage(ProjectData projectData, int cutSize, double cutDiameterInches, double bleedExtraInches) {
+        int targetCutSize = Math.max(96, cutSize);
+        double safeCutDiameterInches = Math.max(0.1, cutDiameterInches);
+        double safeBleedExtraInches = Math.max(0.0, bleedExtraInches);
+
+        ButtonPreviewPanel referencePanel = new ButtonPreviewPanel();
+        int referencePanelSize = referencePanel.getPreferredSize().width;
+        referencePanel.setSize(referencePanelSize, referencePanelSize);
+        referencePanel.setPreferredSize(new Dimension(referencePanelSize, referencePanelSize));
+        referencePanel.doLayout();
+        PreviewGeometry referenceGeometry = referencePanel.getPreviewGeometry();
+
+        double targetOuterToButtonRatio = safeCutDiameterInches / (safeCutDiameterInches + safeBleedExtraInches);
+        double safeRatio = Math.max(0.1, Math.min(1.0, targetOuterToButtonRatio));
+        int renderOuterSize = Math.max(1, (int) Math.ceil(referenceGeometry.buttonDiameter / safeRatio));
+
         ButtonPreviewPanel panel = new ButtonPreviewPanel();
         panel.showGuides = false;
         panel.showButtonOutline = false;
         panel.showPhotoBorder = false;
+        panel.outerMargin = 0;
+        panel.buttonToOuterRatio = safeRatio;
         panel.setProjectData(projectData == null ? null : projectData.copy());
         panel.setActiveLayerIndex(-1);
-        int referencePanelSize = panel.getPreferredSize().width;
-        panel.setSize(referencePanelSize, referencePanelSize);
-        panel.setPreferredSize(new Dimension(referencePanelSize, referencePanelSize));
+        panel.setSize(renderOuterSize, renderOuterSize);
+        panel.setPreferredSize(new Dimension(renderOuterSize, renderOuterSize));
         panel.doLayout();
 
         PreviewGeometry geometry = panel.getPreviewGeometry();
-        double scale = targetButtonSize / (double) geometry.buttonDiameter;
-        int scaledCanvasSize = Math.max(1, (int) Math.ceil(referencePanelSize * scale));
+        double scale = targetCutSize / (double) geometry.buttonDiameter;
+        int scaledCanvasSize = Math.max(1, (int) Math.ceil(renderOuterSize * scale));
 
         BufferedImage scaledCanvas = new BufferedImage(scaledCanvasSize, scaledCanvasSize, BufferedImage.TYPE_INT_ARGB);
         Graphics2D graphics = scaledCanvas.createGraphics();
@@ -222,9 +237,9 @@ public class ButtonPreviewPanel extends JPanel {
         panel.paint(graphics);
         graphics.dispose();
 
-        int cropSize = Math.max(1, (int) Math.round(geometry.buttonDiameter * scale));
-        int cropX = Math.max(0, (int) Math.round((geometry.centerX - (geometry.buttonDiameter / 2.0)) * scale));
-        int cropY = Math.max(0, (int) Math.round((geometry.centerY - (geometry.buttonDiameter / 2.0)) * scale));
+        int cropSize = Math.max(1, (int) Math.round(geometry.bleedDiameter * scale));
+        int cropX = Math.max(0, (int) Math.round((geometry.centerX - (geometry.bleedDiameter / 2.0)) * scale));
+        int cropY = Math.max(0, (int) Math.round((geometry.centerY - (geometry.bleedDiameter / 2.0)) * scale));
         cropX = Math.min(cropX, Math.max(0, scaledCanvasSize - cropSize));
         cropY = Math.min(cropY, Math.max(0, scaledCanvasSize - cropSize));
 

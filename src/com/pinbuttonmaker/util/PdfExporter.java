@@ -93,21 +93,25 @@ public final class PdfExporter {
                 double xPoints = slot.getXInches() * POINTS_PER_INCH;
                 double yTopPoints = slot.getYInches() * POINTS_PER_INCH;
                 double yPoints = pdfPageHeightPoints - yTopPoints - diameterPoints;
+                double bleedDiameterPoints = slot.getBleedDiameterInches() * POINTS_PER_INCH;
+                double bleedInsetPoints = (bleedDiameterPoints - diameterPoints) / 2.0;
+                double bleedXPoints = xPoints - bleedInsetPoints;
+                double bleedYPoints = yPoints - bleedInsetPoints;
 
                 BufferedImage image = slot.getPreviewImage();
                 if (image != null) {
                     Object imageXObject = createPdfImage(document, image);
                     saveGraphicsStateMethod.invoke(contentStream);
-                    drawEllipsePath(contentStream, xPoints, yPoints, diameterPoints, diameterPoints);
+                    drawEllipsePath(contentStream, bleedXPoints, bleedYPoints, bleedDiameterPoints, bleedDiameterPoints);
                     closePathMethod.invoke(contentStream);
                     clipMethod.invoke(contentStream);
                     drawImageMethod.invoke(
                         contentStream,
                         imageXObject,
-                        (float) xPoints,
-                        (float) yPoints,
-                        (float) diameterPoints,
-                        (float) diameterPoints
+                        (float) bleedXPoints,
+                        (float) bleedYPoints,
+                        (float) bleedDiameterPoints,
+                        (float) bleedDiameterPoints
                     );
                     restoreGraphicsStateMethod.invoke(contentStream);
                 }
@@ -175,11 +179,19 @@ public final class PdfExporter {
             double diameterPx = slot.getDiameterInches() * dpi;
             double xPx = slot.getXInches() * dpi;
             double yPx = slot.getYInches() * dpi;
+            double bleedDiameterPx = slot.getBleedDiameterInches() * dpi;
+            double bleedInsetPx = (bleedDiameterPx - diameterPx) / 2.0;
 
             Ellipse2D circle = new Ellipse2D.Double(xPx, yPx, diameterPx, diameterPx);
             BufferedImage preview = slot.getPreviewImage();
             if (preview != null) {
-                drawPreviewIntoCircle(g2, preview, circle);
+                Ellipse2D bleedCircle = new Ellipse2D.Double(
+                    xPx - bleedInsetPx,
+                    yPx - bleedInsetPx,
+                    bleedDiameterPx,
+                    bleedDiameterPx
+                );
+                drawPreviewIntoCircle(g2, preview, bleedCircle);
             }
 
             if (snapshot.isShowCutLines() && preview != null) {
