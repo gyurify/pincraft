@@ -29,13 +29,16 @@ import javax.swing.JPanel;
 import javax.swing.TransferHandler;
 
 public class PaperPreviewPanel extends JPanel {
+    private static final double BLEED_EXTRA_INCHES = 1.0 / 2.54;
+    private static final float CUT_LINE_WIDTH_PX = 2.0f;
+
     private static final Color WORKSPACE_BG = new Color(237, 242, 249);
     private static final Color PAGE_SHADOW = new Color(214, 221, 232, 90);
     private static final Color PAGE_FILL = Color.WHITE;
     private static final Color PAGE_BORDER = new Color(189, 201, 220);
     private static final Color SLOT_FILL = new Color(225, 234, 247, 120);
     private static final Color SLOT_SOFT_BORDER = new Color(206, 216, 232, 170);
-    private static final Color CUT_LINE_COLOR = new Color(90, 128, 184, 155);
+    private static final Color CUT_LINE_COLOR = Color.BLACK;
     private static final Color CAPTION_COLOR = new Color(100, 112, 132);
     private static final Color EMPTY_SLOT_LABEL = new Color(141, 152, 171);
 
@@ -142,8 +145,8 @@ public class PaperPreviewPanel extends JPanel {
 
         for (int row = 0; row < layoutInfo.getRows(); row++) {
             for (int col = 0; col < layoutInfo.getColumns(); col++) {
-                double xInches = layoutInfo.getStartXInches() + (col * (buttonDiameterInches + horizontalGapInches));
-                double yInches = layoutInfo.getStartYInches() + (row * (buttonDiameterInches + verticalGapInches));
+                double xInches = layoutInfo.getStartXInches() + (col * (buttonDiameterInches + getEffectiveHorizontalGapInches()));
+                double yInches = layoutInfo.getStartYInches() + (row * (buttonDiameterInches + getEffectiveVerticalGapInches()));
 
                 BufferedImage image = null;
                 if (index >= 0 && index < slotAssignments.size()) {
@@ -154,7 +157,14 @@ public class PaperPreviewPanel extends JPanel {
                     }
                 }
 
-                slots.add(new PlacedSlot(index, xInches, yInches, buttonDiameterInches, image));
+                slots.add(new PlacedSlot(
+                    index,
+                    xInches,
+                    yInches,
+                    buttonDiameterInches,
+                    calculateBleedDiameterInches(buttonDiameterInches),
+                    image
+                ));
                 index++;
             }
         }
@@ -179,22 +189,43 @@ public class PaperPreviewPanel extends JPanel {
     }
 
     private LayoutInfo calculateLayout() {
-        double usableWidth = Math.max(0.0, paperWidthInches - (horizontalMarginInches * 2.0));
-        double usableHeight = Math.max(0.0, paperHeightInches - (verticalMarginInches * 2.0));
+        double effectiveHorizontalMargin = getEffectiveHorizontalMarginInches();
+        double effectiveVerticalMargin = getEffectiveVerticalMarginInches();
+        double effectiveHorizontalGap = getEffectiveHorizontalGapInches();
+        double effectiveVerticalGap = getEffectiveVerticalGapInches();
 
-        int columns = (int) Math.floor((usableWidth + horizontalGapInches) / (buttonDiameterInches + horizontalGapInches));
-        int rows = (int) Math.floor((usableHeight + verticalGapInches) / (buttonDiameterInches + verticalGapInches));
+        double usableWidth = Math.max(0.0, paperWidthInches - (effectiveHorizontalMargin * 2.0));
+        double usableHeight = Math.max(0.0, paperHeightInches - (effectiveVerticalMargin * 2.0));
+
+        int columns = (int) Math.floor((usableWidth + effectiveHorizontalGap) / (buttonDiameterInches + effectiveHorizontalGap));
+        int rows = (int) Math.floor((usableHeight + effectiveVerticalGap) / (buttonDiameterInches + effectiveVerticalGap));
 
         columns = Math.max(0, columns);
         rows = Math.max(0, rows);
 
-        double occupiedWidth = columns == 0 ? 0.0 : (columns * buttonDiameterInches) + ((columns - 1) * horizontalGapInches);
-        double occupiedHeight = rows == 0 ? 0.0 : (rows * buttonDiameterInches) + ((rows - 1) * verticalGapInches);
+        double occupiedWidth = columns == 0 ? 0.0 : (columns * buttonDiameterInches) + ((columns - 1) * effectiveHorizontalGap);
+        double occupiedHeight = rows == 0 ? 0.0 : (rows * buttonDiameterInches) + ((rows - 1) * effectiveVerticalGap);
 
-        double startX = horizontalMarginInches + Math.max(0.0, (usableWidth - occupiedWidth) / 2.0);
-        double startY = verticalMarginInches + Math.max(0.0, (usableHeight - occupiedHeight) / 2.0);
+        double startX = effectiveHorizontalMargin + Math.max(0.0, (usableWidth - occupiedWidth) / 2.0);
+        double startY = effectiveVerticalMargin + Math.max(0.0, (usableHeight - occupiedHeight) / 2.0);
 
         return new LayoutInfo(columns, rows, columns * rows, startX, startY);
+    }
+
+    private double getEffectiveHorizontalMarginInches() {
+        return Math.max(horizontalMarginInches, BLEED_EXTRA_INCHES / 2.0);
+    }
+
+    private double getEffectiveVerticalMarginInches() {
+        return Math.max(verticalMarginInches, BLEED_EXTRA_INCHES / 2.0);
+    }
+
+    private double getEffectiveHorizontalGapInches() {
+        return Math.max(horizontalGapInches, BLEED_EXTRA_INCHES);
+    }
+
+    private double getEffectiveVerticalGapInches() {
+        return Math.max(verticalGapInches, BLEED_EXTRA_INCHES);
     }
 
     private void ensureSlotAssignmentCapacity(int totalPins) {
@@ -268,8 +299,8 @@ public class PaperPreviewPanel extends JPanel {
         int index = 0;
         for (int row = 0; row < layoutInfo.getRows(); row++) {
             for (int col = 0; col < layoutInfo.getColumns(); col++) {
-                double slotX = paperRect.x + ((layoutInfo.getStartXInches() + (col * (buttonDiameterInches + horizontalGapInches))) * scale);
-                double slotY = paperRect.y + ((layoutInfo.getStartYInches() + (row * (buttonDiameterInches + verticalGapInches))) * scale);
+                double slotX = paperRect.x + ((layoutInfo.getStartXInches() + (col * (buttonDiameterInches + getEffectiveHorizontalGapInches()))) * scale);
+                double slotY = paperRect.y + ((layoutInfo.getStartYInches() + (row * (buttonDiameterInches + getEffectiveVerticalGapInches()))) * scale);
 
                 slotX = clamp(slotX, paperRect.x + 1.0, (paperRect.x + paperRect.width) - diameter - 1.0);
                 slotY = clamp(slotY, paperRect.y + 1.0, (paperRect.y + paperRect.height) - diameter - 1.0);
@@ -300,7 +331,7 @@ public class PaperPreviewPanel extends JPanel {
 
     private void drawButtonSlots(Graphics2D g2, List<SlotBounds> slots) {
         Stroke oldStroke = g2.getStroke();
-        Stroke cutLineStroke = new BasicStroke(1.45f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND, 1f, new float[] {6f, 5f}, 0f);
+        Stroke cutLineStroke = new BasicStroke(CUT_LINE_WIDTH_PX, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND);
 
         for (SlotBounds slot : slots) {
             Ellipse2D circle = slot.toEllipse();
@@ -308,19 +339,21 @@ public class PaperPreviewPanel extends JPanel {
             g2.setColor(SLOT_FILL);
             g2.fill(circle);
 
-            drawAssignedPreview(g2, slot, circle);
+            boolean hasAssignedPreview = drawAssignedPreview(g2, slot);
 
-            g2.setStroke(oldStroke);
-            g2.setColor(SLOT_SOFT_BORDER);
-            g2.draw(circle);
-
-            if (showCutLines) {
-                g2.setStroke(cutLineStroke);
-                g2.setColor(CUT_LINE_COLOR);
+            if (!hasAssignedPreview || !showCutLines) {
+                g2.setStroke(oldStroke);
+                g2.setColor(SLOT_SOFT_BORDER);
                 g2.draw(circle);
             }
 
-            if (slot.getIndex() >= slotAssignments.size() || slotAssignments.get(slot.getIndex()) == null) {
+            if (showCutLines && hasAssignedPreview) {
+                g2.setStroke(cutLineStroke);
+                g2.setColor(CUT_LINE_COLOR);
+                g2.draw(createOuterCutLineEllipse(slot, CUT_LINE_WIDTH_PX));
+            }
+
+            if (!hasAssignedPreview) {
                 drawEmptySlotHint(g2, slot);
             }
         }
@@ -328,34 +361,69 @@ public class PaperPreviewPanel extends JPanel {
         g2.setStroke(oldStroke);
     }
 
-    private void drawAssignedPreview(Graphics2D g2, SlotBounds slot, Ellipse2D circle) {
+    private boolean drawAssignedPreview(Graphics2D g2, SlotBounds slot) {
         int index = slot.getIndex();
         if (index < 0 || index >= slotAssignments.size()) {
-            return;
+            return false;
         }
 
         String itemId = slotAssignments.get(index);
         if (itemId == null) {
-            return;
+            return false;
         }
 
         PrintableItem item = availableItemsById.get(itemId);
         if (item == null || item.getPreviewImage() == null) {
-            return;
+            return false;
         }
 
         BufferedImage image = item.getPreviewImage();
+        Ellipse2D cutCircle = slot.toEllipse();
         Shape oldClip = g2.getClip();
-        g2.clip(circle);
+        g2.clip(cutCircle);
 
-        double scale = Math.max(slot.getDiameter() / image.getWidth(), slot.getDiameter() / image.getHeight());
+        double scale = Math.max(cutCircle.getWidth() / image.getWidth(), cutCircle.getHeight() / image.getHeight());
         int drawWidth = Math.max(1, (int) Math.round(image.getWidth() * scale));
         int drawHeight = Math.max(1, (int) Math.round(image.getHeight() * scale));
-        int drawX = (int) Math.round(slot.getX() + (slot.getDiameter() - drawWidth) / 2.0);
-        int drawY = (int) Math.round(slot.getY() + (slot.getDiameter() - drawHeight) / 2.0);
+        int drawX = (int) Math.round(cutCircle.getX() + (cutCircle.getWidth() - drawWidth) / 2.0);
+        int drawY = (int) Math.round(cutCircle.getY() + (cutCircle.getHeight() - drawHeight) / 2.0);
 
         g2.drawImage(image, drawX, drawY, drawWidth, drawHeight, null);
         g2.setClip(oldClip);
+        return true;
+    }
+
+    private Ellipse2D createBleedEllipse(SlotBounds slot) {
+        double scaleFactor = getBleedScaleFactor();
+        double bleedDiameter = slot.getDiameter() * scaleFactor;
+        double inset = (bleedDiameter - slot.getDiameter()) / 2.0;
+        return new Ellipse2D.Double(
+            slot.getX() - inset,
+            slot.getY() - inset,
+            bleedDiameter,
+            bleedDiameter
+        );
+    }
+
+    private Ellipse2D createOuterCutLineEllipse(SlotBounds slot, double strokeWidth) {
+        double inset = strokeWidth / 2.0;
+        return new Ellipse2D.Double(
+            slot.getX() - inset,
+            slot.getY() - inset,
+            slot.getDiameter() + strokeWidth,
+            slot.getDiameter() + strokeWidth
+        );
+    }
+
+    private double getBleedScaleFactor() {
+        if (buttonDiameterInches <= 0.0) {
+            return 1.0;
+        }
+        return calculateBleedDiameterInches(buttonDiameterInches) / buttonDiameterInches;
+    }
+
+    private static double calculateBleedDiameterInches(double cutDiameterInches) {
+        return cutDiameterInches + BLEED_EXTRA_INCHES;
     }
 
     private void drawEmptySlotHint(Graphics2D g2, SlotBounds slot) {
@@ -673,13 +741,15 @@ public class PaperPreviewPanel extends JPanel {
         private final double xInches;
         private final double yInches;
         private final double diameterInches;
+        private final double bleedDiameterInches;
         private final BufferedImage previewImage;
 
-        private PlacedSlot(int index, double xInches, double yInches, double diameterInches, BufferedImage previewImage) {
+        private PlacedSlot(int index, double xInches, double yInches, double diameterInches, double bleedDiameterInches, BufferedImage previewImage) {
             this.index = index;
             this.xInches = xInches;
             this.yInches = yInches;
             this.diameterInches = diameterInches;
+            this.bleedDiameterInches = bleedDiameterInches;
             this.previewImage = previewImage;
         }
 
@@ -697,6 +767,10 @@ public class PaperPreviewPanel extends JPanel {
 
         public double getDiameterInches() {
             return diameterInches;
+        }
+
+        public double getBleedDiameterInches() {
+            return bleedDiameterInches;
         }
 
         public BufferedImage getPreviewImage() {

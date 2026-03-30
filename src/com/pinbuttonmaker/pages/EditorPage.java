@@ -1196,10 +1196,11 @@ public class EditorPage extends JPanel {
             return;
         }
 
-        String currentName = projectData.getProjectName() == null ? "" : projectData.getProjectName().trim();
-        if (currentName.isEmpty() || "Untitled Project".equalsIgnoreCase(currentName)) {
-            projectData.setProjectName("PinCraft Project " + (appState.getSavedProjects().size() + 1));
+        String projectName = promptForProjectNameBeforeSave();
+        if (projectName == null) {
+            return;
         }
+        projectData.setProjectName(projectName);
 
         ProjectStorageService.StorageResult<Void> result = appState.saveCurrentProject();
         if (!result.isSuccess()) {
@@ -1218,6 +1219,41 @@ public class EditorPage extends JPanel {
             "Save Project",
             JOptionPane.INFORMATION_MESSAGE
         );
+    }
+
+    private String promptForProjectNameBeforeSave() {
+        String currentName = projectData.getProjectName() == null ? "" : projectData.getProjectName().trim();
+        String suggestedName = currentName.isEmpty() || "Untitled Project".equalsIgnoreCase(currentName)
+            ? "PinCraft Project " + (appState.getSavedProjects().size() + 1)
+            : currentName;
+
+        while (true) {
+            String enteredName = (String) JOptionPane.showInputDialog(
+                this,
+                "Enter a project name before saving:",
+                "Save Project",
+                JOptionPane.PLAIN_MESSAGE,
+                null,
+                null,
+                suggestedName
+            );
+
+            if (enteredName == null) {
+                return null;
+            }
+
+            enteredName = enteredName.trim();
+            if (!enteredName.isEmpty()) {
+                return enteredName;
+            }
+
+            JOptionPane.showMessageDialog(
+                this,
+                "Project name cannot be empty.",
+                "Save Project",
+                JOptionPane.ERROR_MESSAGE
+            );
+        }
     }
 
     private void loadProjectFromMemory() {
@@ -1799,7 +1835,7 @@ public class EditorPage extends JPanel {
 
             updateTransformValueLabels(null);
         } else {
-            activeLayerLabel.setText("Active Layer: " + getLayerDisplayName(activeLayer.getLayerName()));
+            activeLayerLabel.setText("Active Layer: " + getLayerDisplayLabel(activeLayer));
 
             if (textEditable) {
                 textInputField.setText(activeLayer.getTextContent() == null ? "" : activeLayer.getTextContent());
@@ -1924,7 +1960,7 @@ public class EditorPage extends JPanel {
             LayerData layer = layers.get(i);
 
             boolean active = (i == activeLayerIndex);
-            boolean hidden = !layer.isPrintable();
+            boolean hidden = isLayerHidden(layer);
 
             if (active) {
                 tabButton.setBackground(TAB_ACTIVE_BG);
@@ -1947,7 +1983,16 @@ public class EditorPage extends JPanel {
     }
 
     private String getLayerTabText(LayerData layer) {
-        return getLayerDisplayName(layer.getLayerName());
+        return getLayerDisplayLabel(layer);
+    }
+
+    private String getLayerDisplayLabel(LayerData layer) {
+        String displayName = getLayerDisplayName(layer.getLayerName());
+        return isLayerHidden(layer) ? displayName + " (hidden)" : displayName;
+    }
+
+    private boolean isLayerHidden(LayerData layer) {
+        return layer != null && !layer.isPrintable();
     }
 
     private String getLayerDisplayName(String name) {

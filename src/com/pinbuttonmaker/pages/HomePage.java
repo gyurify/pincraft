@@ -58,6 +58,12 @@ public class HomePage extends JPanel {
     private static final Color CARD_BG = Color.WHITE;
     private static final Color CARD_BORDER = new Color(223, 228, 237);
     private static final Color PRIMARY_BLUE = new Color(46, 103, 231);
+    private static final Color OPEN_BUTTON_BG = new Color(38, 96, 225);
+    private static final Color OPEN_BUTTON_BORDER = new Color(30, 78, 188);
+    private static final Color REMOVE_BUTTON_BG = new Color(246, 232, 232);
+    private static final Color REMOVE_BUTTON_TEXT = new Color(170, 53, 53);
+    private static final Color REMOVE_BUTTON_BORDER = new Color(232, 205, 205);
+    private static final int RECENT_PREVIEW_RENDER_SIZE = 520;
 
     private final AppRouter router;
     private final AppState appState;
@@ -490,30 +496,38 @@ public class HomePage extends JPanel {
     }
 
     private JPanel createProjectCard(ProjectData project) {
+        int gridColumns = calculateGridColumns();
+
         RoundedPanel card = new RoundedPanel(14, CARD_BG, CARD_BORDER);
         card.setLayout(new GridBagLayout());
-        card.setBorder(new EmptyBorder(12, 12, 12, 12));
-        card.setPreferredSize(new Dimension(220, 246));
+        card.setBorder(new EmptyBorder(14, 14, 14, 14));
+        card.setPreferredSize(new Dimension(220, gridColumns == 1 ? 356 : 312));
 
         GridBagConstraints constraints = new GridBagConstraints();
         constraints.gridx = 0;
         constraints.weightx = 1.0;
         constraints.fill = GridBagConstraints.HORIZONTAL;
 
-        JPanel previewBox = createProjectPreviewBox(project);
+        JPanel previewBox = createProjectPreviewBox(project, gridColumns);
 
         JLabel title = new JLabel(project.getProjectName());
-        title.setFont(new Font("SansSerif", Font.BOLD, 14));
+        title.setFont(new Font("SansSerif", Font.BOLD, 16));
         title.setForeground(new Color(26, 33, 48));
 
         JLabel details = new JLabel("Layers: " + project.getLayers().size());
-        details.setFont(new Font("SansSerif", Font.PLAIN, 12));
+        details.setFont(new Font("SansSerif", Font.PLAIN, 13));
         details.setForeground(new Color(96, 106, 126));
 
-        JPanel actions = new JPanel(new FlowLayout(FlowLayout.LEFT, 6, 0));
+        JPanel actions = new JPanel(new GridLayout(1, 2, 10, 0));
         actions.setOpaque(false);
+        actions.setBorder(new EmptyBorder(4, 0, 0, 0));
 
-        JButton openButton = createProjectActionButton("Open", new Color(38, 96, 225));
+        JButton openButton = createProjectActionButton(
+            "Open",
+            OPEN_BUTTON_BG,
+            Color.WHITE,
+            OPEN_BUTTON_BORDER
+        );
         openButton.addActionListener(event -> {
             ProjectStorageService.StorageResult<ProjectData> result = appState.loadProjectAsCurrent(project.getProjectId());
             if (!result.isSuccess()) {
@@ -528,7 +542,12 @@ public class HomePage extends JPanel {
             router.showEditor();
         });
 
-        JButton removeButton = createProjectActionButton("Remove", new Color(189, 61, 61));
+        JButton removeButton = createProjectActionButton(
+            "Remove",
+            REMOVE_BUTTON_BG,
+            REMOVE_BUTTON_TEXT,
+            REMOVE_BUTTON_BORDER
+        );
         removeButton.addActionListener(event -> handleRemoveProject(project));
 
         actions.add(openButton);
@@ -553,29 +572,38 @@ public class HomePage extends JPanel {
         return card;
     }
 
-    private JPanel createProjectPreviewBox(ProjectData project) {
+    private JPanel createProjectPreviewBox(ProjectData project, int gridColumns) {
+        int previewHeight = gridColumns == 1 ? 236 : 188;
+        int previewIconSize = gridColumns == 1 ? 202 : 162;
+
         RoundedPanel previewBox = new RoundedPanel(12, new Color(247, 249, 253), new Color(229, 233, 241));
         previewBox.setLayout(new GridBagLayout());
-        previewBox.setPreferredSize(new Dimension(180, 132));
+        previewBox.setBorder(new EmptyBorder(14, 14, 14, 14));
+        previewBox.setPreferredSize(new Dimension(220, previewHeight));
 
         JLabel previewLabel = new JLabel();
         previewLabel.setHorizontalAlignment(SwingConstants.CENTER);
         previewLabel.setVerticalAlignment(SwingConstants.CENTER);
 
-        BufferedImage previewImage = ButtonPreviewPanel.createPreviewImage(project, 120, false);
-        Image scaledImage = previewImage.getScaledInstance(108, 108, Image.SCALE_SMOOTH);
+        BufferedImage previewImage = ButtonPreviewPanel.createPreviewImage(project, RECENT_PREVIEW_RENDER_SIZE, false);
+        Image scaledImage = previewImage.getScaledInstance(previewIconSize, previewIconSize, Image.SCALE_SMOOTH);
         previewLabel.setIcon(new ImageIcon(scaledImage));
 
         previewBox.add(previewLabel);
         return previewBox;
     }
 
-    private JButton createProjectActionButton(String text, Color color) {
+    private JButton createProjectActionButton(String text, Color background, Color foreground, Color borderColor) {
         JButton button = new JButton(text);
         button.setFont(new Font("SansSerif", Font.BOLD, 12));
-        button.setForeground(color);
-        button.setBorderPainted(false);
-        button.setContentAreaFilled(false);
+        button.setForeground(foreground);
+        button.setBackground(background);
+        button.setBorder(BorderFactory.createCompoundBorder(
+            BorderFactory.createLineBorder(borderColor, 1, true),
+            BorderFactory.createEmptyBorder(9, 12, 9, 12)
+        ));
+        button.setOpaque(true);
+        button.setContentAreaFilled(true);
         button.setFocusPainted(false);
         button.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         return button;

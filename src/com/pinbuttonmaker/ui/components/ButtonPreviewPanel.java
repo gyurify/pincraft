@@ -27,6 +27,10 @@ import com.pinbuttonmaker.data.LayerData;
 import com.pinbuttonmaker.data.ProjectData;
 
 public class ButtonPreviewPanel extends JPanel {
+    private static final double DEFAULT_BUTTON_TO_OUTER_RATIO = 0.92;
+    private static final double DEFAULT_SAFE_TO_OUTER_RATIO = 0.76;
+    private static final double SAFE_TO_BUTTON_RATIO = DEFAULT_SAFE_TO_OUTER_RATIO / DEFAULT_BUTTON_TO_OUTER_RATIO;
+
     public interface LayerSelectionListener {
         void onLayerSelected(int layerIndex);
     }
@@ -50,6 +54,10 @@ public class ButtonPreviewPanel extends JPanel {
 
     private LayerSelectionListener layerSelectionListener;
     private boolean showGuides;
+    private boolean showButtonOutline;
+    private boolean showPhotoBorder;
+    private int outerMargin;
+    private double buttonToOuterRatio;
 
     private boolean draggingLayer;
     private int lastDragX;
@@ -65,6 +73,10 @@ public class ButtonPreviewPanel extends JPanel {
         this.snapToCenterX = false;
         this.snapToCenterY = false;
         this.showGuides = true;
+        this.showButtonOutline = true;
+        this.showPhotoBorder = true;
+        this.outerMargin = BLEED_MARGIN;
+        this.buttonToOuterRatio = DEFAULT_BUTTON_TO_OUTER_RATIO;
 
         MouseAdapter dragAdapter = new MouseAdapter() {
             @Override
@@ -187,6 +199,53 @@ public class ButtonPreviewPanel extends JPanel {
         return image;
     }
 
+    public static BufferedImage createPrintableArtworkImage(ProjectData projectData, int size) {
+        int targetButtonSize = Math.max(96, size);
+        ButtonPreviewPanel panel = new ButtonPreviewPanel();
+        panel.showGuides = false;
+        panel.showButtonOutline = false;
+        panel.showPhotoBorder = false;
+        panel.setProjectData(projectData == null ? null : projectData.copy());
+        panel.setActiveLayerIndex(-1);
+        int referencePanelSize = panel.getPreferredSize().width;
+        panel.setSize(referencePanelSize, referencePanelSize);
+        panel.setPreferredSize(new Dimension(referencePanelSize, referencePanelSize));
+        panel.doLayout();
+
+        PreviewGeometry geometry = panel.getPreviewGeometry();
+        double scale = targetButtonSize / (double) geometry.buttonDiameter;
+        int scaledCanvasSize = Math.max(1, (int) Math.ceil(referencePanelSize * scale));
+
+        BufferedImage scaledCanvas = new BufferedImage(scaledCanvasSize, scaledCanvasSize, BufferedImage.TYPE_INT_ARGB);
+        Graphics2D graphics = scaledCanvas.createGraphics();
+        graphics.scale(scale, scale);
+        panel.paint(graphics);
+        graphics.dispose();
+
+        int cropSize = Math.max(1, (int) Math.round(geometry.buttonDiameter * scale));
+        int cropX = Math.max(0, (int) Math.round((geometry.centerX - (geometry.buttonDiameter / 2.0)) * scale));
+        int cropY = Math.max(0, (int) Math.round((geometry.centerY - (geometry.buttonDiameter / 2.0)) * scale));
+        cropX = Math.min(cropX, Math.max(0, scaledCanvasSize - cropSize));
+        cropY = Math.min(cropY, Math.max(0, scaledCanvasSize - cropSize));
+
+        BufferedImage image = new BufferedImage(cropSize, cropSize, BufferedImage.TYPE_INT_ARGB);
+        Graphics2D croppedGraphics = image.createGraphics();
+        croppedGraphics.drawImage(
+            scaledCanvas,
+            0,
+            0,
+            cropSize,
+            cropSize,
+            cropX,
+            cropY,
+            cropX + cropSize,
+            cropY + cropSize,
+            null
+        );
+        croppedGraphics.dispose();
+        return image;
+    }
+
     public void setProjectData(ProjectData projectData) {
         this.projectData = projectData;
         repaint();
@@ -233,9 +292,11 @@ public class ButtonPreviewPanel extends JPanel {
 
         drawLayers(g2, geometry);
 
-        g2.setColor(BUTTON_OUTLINE);
-        g2.setStroke(new BasicStroke(2f));
-        g2.drawOval(buttonX, buttonY, geometry.buttonDiameter, geometry.buttonDiameter);
+        if (showButtonOutline) {
+            g2.setColor(BUTTON_OUTLINE);
+            g2.setStroke(new BasicStroke(2f));
+            g2.drawOval(buttonX, buttonY, geometry.buttonDiameter, geometry.buttonDiameter);
+        }
 
         if (showGuides) {
             g2.setColor(BLEED_LINE_COLOR);
@@ -440,9 +501,11 @@ public class ButtonPreviewPanel extends JPanel {
 
         g2.setClip(oldClip);
 
-        g2.setColor(PHOTO_BORDER);
-        g2.setStroke(new BasicStroke(1.2f));
-        g2.drawOval(buttonX, buttonY, buttonDiameter, buttonDiameter);
+        if (showPhotoBorder) {
+            g2.setColor(PHOTO_BORDER);
+            g2.setStroke(new BasicStroke(1.2f));
+            g2.drawOval(buttonX, buttonY, buttonDiameter, buttonDiameter);
+        }
     }
 
     private void applyLayerTransform(Graphics2D g2, LayerData layer, int centerX, int centerY) {
@@ -631,14 +694,14 @@ public class ButtonPreviewPanel extends JPanel {
     }
 
     private PreviewGeometry getPreviewGeometry() {
-        int bleedDiameter = Math.min(getWidth(), getHeight()) - BLEED_MARGIN;
-        int buttonDiameter = (int) (bleedDiameter * 0.92);
-        int safeDiameter = (int) (bleedDiameter * 0.76);
+        int outerDiameter = Math.min(getWidth(), getHeight()) - outerMargin;
+        int buttonDiameter = (int) Math.round(outerDiameter * buttonToOuterRatio);
+        int safeDiameter = (int) Math.round(buttonDiameter * SAFE_TO_BUTTON_RATIO);
 
         int centerX = getWidth() / 2;
         int centerY = getHeight() / 2;
 
-        return new PreviewGeometry(centerX, centerY, bleedDiameter, buttonDiameter, safeDiameter);
+        return new PreviewGeometry(centerX, centerY, outerDiameter, buttonDiameter, safeDiameter);
     }
 
     private static final class PreviewGeometry {

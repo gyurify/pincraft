@@ -12,7 +12,6 @@ import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.lang.reflect.Constructor;
-import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
@@ -26,16 +25,14 @@ import com.pinbuttonmaker.ui.components.PaperPreviewPanel;
 public final class PdfExporter {
     private static final double POINTS_PER_INCH = 72.0;
     private static final double KAPPA = 0.5522847498307936;
-
-    private static final double A4_WIDTH_POINTS = 595.2756;
-    private static final double A4_HEIGHT_POINTS = 841.8898;
+    private static final float CUT_LINE_WIDTH_POINTS = 2.0f;
     private static final int FALLBACK_RENDER_DPI = 300;
 
     private PdfExporter() {
         // Utility class.
     }
 
-    public static void exportA4Pdf(File outputFile, PaperPreviewPanel.ExportSnapshot snapshot) throws Exception {
+    public static void exportPdf(File outputFile, PaperPreviewPanel.ExportSnapshot snapshot) throws Exception {
         if (outputFile == null) {
             throw new IllegalArgumentException("Output file is required.");
         }
@@ -67,9 +64,11 @@ public final class PdfExporter {
 
             document = pdDocumentClass.getConstructor().newInstance();
 
-            Field a4Field = pdRectangleClass.getField("A4");
-            Object a4Rectangle = a4Field.get(null);
-            Object page = pdPageClass.getConstructor(pdRectangleClass).newInstance(a4Rectangle);
+            float paperWidthPoints = (float) (snapshot.getPaperWidthInches() * POINTS_PER_INCH);
+            float paperHeightPoints = (float) (snapshot.getPaperHeightInches() * POINTS_PER_INCH);
+            Object paperRectangle = pdRectangleClass.getConstructor(float.class, float.class)
+                .newInstance(paperWidthPoints, paperHeightPoints);
+            Object page = pdPageClass.getConstructor(pdRectangleClass).newInstance(paperRectangle);
 
             Method addPageMethod = pdDocumentClass.getMethod("addPage", pdPageClass);
             addPageMethod.invoke(document, page);
@@ -77,18 +76,7 @@ public final class PdfExporter {
             Constructor<?> streamCtor = pdPageContentStreamClass.getConstructor(pdDocumentClass, pdPageClass);
             contentStream = streamCtor.newInstance(document, page);
 
-            float a4Width = (float) pdRectangleClass.getMethod("getWidth").invoke(a4Rectangle);
-            float a4Height = (float) pdRectangleClass.getMethod("getHeight").invoke(a4Rectangle);
-
-            double paperWidthPoints = snapshot.getPaperWidthInches() * POINTS_PER_INCH;
-            double paperHeightPoints = snapshot.getPaperHeightInches() * POINTS_PER_INCH;
-
-            double scale = Math.min(a4Width / paperWidthPoints, a4Height / paperHeightPoints);
-            double contentWidth = paperWidthPoints * scale;
-            double contentHeight = paperHeightPoints * scale;
-
-            double offsetX = (a4Width - contentWidth) / 2.0;
-            double offsetY = (a4Height - contentHeight) / 2.0;
+            double pdfPageHeightPoints = paperHeightPoints;
 
             Method setLineWidthMethod = pdPageContentStreamClass.getMethod("setLineWidth", float.class);
             Method setStrokingColorMethod = pdPageContentStreamClass.getMethod("setStrokingColor", float.class, float.class, float.class);
@@ -101,10 +89,10 @@ public final class PdfExporter {
             Method closePathMethod = pdPageContentStreamClass.getMethod("closePath");
 
             for (PaperPreviewPanel.PlacedSlot slot : snapshot.getSlots()) {
-                double diameterPoints = slot.getDiameterInches() * POINTS_PER_INCH * scale;
-                double xPoints = offsetX + (slot.getXInches() * POINTS_PER_INCH * scale);
-                double yTopPoints = offsetY + (slot.getYInches() * POINTS_PER_INCH * scale);
-                double yPoints = (a4Height - yTopPoints) - diameterPoints;
+                double diameterPoints = slot.getDiameterInches() * POINTS_PER_INCH;
+                double xPoints = slot.getXInches() * POINTS_PER_INCH;
+                double yTopPoints = slot.getYInches() * POINTS_PER_INCH;
+                double yPoints = pdfPageHeightPoints - yTopPoints - diameterPoints;
 
                 BufferedImage image = slot.getPreviewImage();
                 if (image != null) {
@@ -124,11 +112,17 @@ public final class PdfExporter {
                     restoreGraphicsStateMethod.invoke(contentStream);
                 }
 
-                if (snapshot.isShowCutLines()) {
-                    setStrokingColorMethod.invoke(contentStream, 0.35f, 0.50f, 0.72f);
-                    setLineWidthMethod.invoke(contentStream, 1.1f);
-                    setLineDashPatternMethod.invoke(contentStream, new float[] {4.0f, 3.0f}, 0.0f);
-                    drawEllipsePath(contentStream, xPoints, yPoints, diameterPoints, diameterPoints);
+                if (snapshot.isShowCutLines() && image != null) {
+                    setStrokingColorMethod.invoke(contentStream, 0.0f, 0.0f, 0.0f);
+                    setLineWidthMethod.invoke(contentStream, CUT_LINE_WIDTH_POINTS);
+                    setLineDashPatternMethod.invoke(contentStream, new float[] {}, 0.0f);
+                    drawEllipsePath(
+                        contentStream,
+                        xPoints - (CUT_LINE_WIDTH_POINTS / 2.0),
+                        yPoints - (CUT_LINE_WIDTH_POINTS / 2.0),
+                        diameterPoints + CUT_LINE_WIDTH_POINTS,
+                        diameterPoints + CUT_LINE_WIDTH_POINTS
+                    );
                     closePathMethod.invoke(contentStream);
                     strokeMethod.invoke(contentStream);
                 }
@@ -148,22 +142,18 @@ public final class PdfExporter {
 
         double paperWidthPoints = snapshot.getPaperWidthInches() * POINTS_PER_INCH;
         double paperHeightPoints = snapshot.getPaperHeightInches() * POINTS_PER_INCH;
-        double scale = Math.min(A4_WIDTH_POINTS / paperWidthPoints, A4_HEIGHT_POINTS / paperHeightPoints);
-
-        double drawWidthPoints = paperWidthPoints * scale;
-        double drawHeightPoints = paperHeightPoints * scale;
-        double offsetXPoints = (A4_WIDTH_POINTS - drawWidthPoints) / 2.0;
-        double offsetYPoints = (A4_HEIGHT_POINTS - drawHeightPoints) / 2.0;
 
         writeSingleImagePdf(
             outputFile,
             jpegBytes,
             rendered.getWidth(),
             rendered.getHeight(),
-            drawWidthPoints,
-            drawHeightPoints,
-            offsetXPoints,
-            offsetYPoints
+            paperWidthPoints,
+            paperHeightPoints,
+            paperWidthPoints,
+            paperHeightPoints,
+            0.0,
+            0.0
         );
     }
 
@@ -179,7 +169,8 @@ public final class PdfExporter {
         g2.setColor(Color.WHITE);
         g2.fillRect(0, 0, width, height);
 
-        Stroke cutLineStroke = new BasicStroke(2.0f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND, 1f, new float[] {8f, 6f}, 0f);
+        float cutLineStrokePx = (float) ((CUT_LINE_WIDTH_POINTS / POINTS_PER_INCH) * dpi);
+        Stroke cutLineStroke = new BasicStroke(cutLineStrokePx, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND);
         for (PaperPreviewPanel.PlacedSlot slot : snapshot.getSlots()) {
             double diameterPx = slot.getDiameterInches() * dpi;
             double xPx = slot.getXInches() * dpi;
@@ -191,11 +182,16 @@ public final class PdfExporter {
                 drawPreviewIntoCircle(g2, preview, circle);
             }
 
-            if (snapshot.isShowCutLines()) {
+            if (snapshot.isShowCutLines() && preview != null) {
                 Stroke oldStroke = g2.getStroke();
                 g2.setStroke(cutLineStroke);
-                g2.setColor(new Color(90, 128, 184));
-                g2.draw(circle);
+                g2.setColor(Color.BLACK);
+                g2.draw(new Ellipse2D.Double(
+                    xPx - (cutLineStrokePx / 2.0),
+                    yPx - (cutLineStrokePx / 2.0),
+                    diameterPx + cutLineStrokePx,
+                    diameterPx + cutLineStrokePx
+                ));
                 g2.setStroke(oldStroke);
             }
         }
@@ -234,6 +230,8 @@ public final class PdfExporter {
         byte[] jpegBytes,
         int imageWidth,
         int imageHeight,
+        double pageWidthPoints,
+        double pageHeightPoints,
         double drawWidthPoints,
         double drawHeightPoints,
         double offsetXPoints,
@@ -258,9 +256,9 @@ public final class PdfExporter {
         offsets.add(pdf.size());
         writeAscii(pdf, "3 0 obj\n");
         writeAscii(pdf, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ");
-        writeAscii(pdf, formatNumber(A4_WIDTH_POINTS));
+        writeAscii(pdf, formatNumber(pageWidthPoints));
         writeAscii(pdf, " ");
-        writeAscii(pdf, formatNumber(A4_HEIGHT_POINTS));
+        writeAscii(pdf, formatNumber(pageHeightPoints));
         writeAscii(pdf, "] ");
         writeAscii(pdf, "/Resources << /XObject << /Im0 4 0 R >> >> ");
         writeAscii(pdf, "/Contents 5 0 R >>\n");

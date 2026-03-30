@@ -42,6 +42,7 @@ import com.pinbuttonmaker.AppState;
 import com.pinbuttonmaker.data.LayerData;
 import com.pinbuttonmaker.data.ProjectData;
 import com.pinbuttonmaker.ui.UIStyles;
+import com.pinbuttonmaker.ui.components.ButtonPreviewPanel;
 import com.pinbuttonmaker.ui.components.CustomButton;
 import com.pinbuttonmaker.ui.components.PaperPreviewPanel;
 import com.pinbuttonmaker.util.PdfExporter;
@@ -354,8 +355,13 @@ public class PrintPage extends JPanel {
 
         try {
             PaperPreviewPanel.ExportSnapshot snapshot = paperPreviewPanel.buildExportSnapshot();
-            PdfExporter.exportA4Pdf(outputFile, snapshot);
-            Utils.showInfo(this, "PDF exported to:\n" + outputFile.getAbsolutePath());
+            PdfExporter.exportPdf(outputFile, snapshot);
+            Utils.showInfo(
+                this,
+                "PDF exported to:\n"
+                    + outputFile.getAbsolutePath()
+                    + "\n\nPrint with Actual size / 100% scaling for exact button diameters."
+            );
         } catch (Exception exception) {
             Utils.showInfo(this, "PDF export failed: " + exception.getMessage());
         }
@@ -511,45 +517,7 @@ public class PrintPage extends JPanel {
     }
 
     private BufferedImage createProjectPinPreview(ProjectData project, int size) {
-        int dimension = Math.max(96, size);
-        BufferedImage image = new BufferedImage(dimension, dimension, BufferedImage.TYPE_INT_ARGB);
-        Graphics2D g2 = image.createGraphics();
-
-        g2.setRenderingHint(java.awt.RenderingHints.KEY_ANTIALIASING, java.awt.RenderingHints.VALUE_ANTIALIAS_ON);
-        g2.setRenderingHint(java.awt.RenderingHints.KEY_TEXT_ANTIALIASING, java.awt.RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
-        g2.setRenderingHint(java.awt.RenderingHints.KEY_RENDERING, java.awt.RenderingHints.VALUE_RENDER_QUALITY);
-        g2.setRenderingHint(java.awt.RenderingHints.KEY_INTERPOLATION, java.awt.RenderingHints.VALUE_INTERPOLATION_BILINEAR);
-
-        int x = 0;
-        int y = 0;
-        int diameter = dimension;
-
-        Ellipse2D clip = new Ellipse2D.Double(x, y, diameter, diameter);
-
-        Color background = project != null && project.getButtonBackgroundColor() != null
-            ? project.getButtonBackgroundColor()
-            : new Color(247, 249, 253);
-        g2.setColor(background);
-        g2.fill(clip);
-
-        Shape oldClip = g2.getClip();
-        g2.setClip(clip);
-
-        List<LayerData> layers = getRenderableLayers(project);
-        for (LayerData layer : layers) {
-            float opacity = Math.max(0.0f, Math.min(1.0f, layer.getOpacity()));
-            g2.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, opacity));
-            if (layer.isTextLayer()) {
-                drawTextLayerPreview(g2, layer, x, y, diameter);
-            } else {
-                drawPhotoLayerPreview(g2, layer, x, y, diameter);
-            }
-        }
-
-        g2.setClip(oldClip);
-
-        g2.dispose();
-        return image;
+        return ButtonPreviewPanel.createPrintableArtworkImage(project, size);
     }
 
     private void drawTextLayerPreview(Graphics2D g2, LayerData layer, int x, int y, int diameter) {
