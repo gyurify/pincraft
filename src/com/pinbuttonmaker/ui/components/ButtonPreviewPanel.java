@@ -25,7 +25,6 @@ import javax.swing.JPanel;
 
 import com.pinbuttonmaker.data.LayerData;
 import com.pinbuttonmaker.data.ProjectData;
-
 public class ButtonPreviewPanel extends JPanel {
     private static final double DEFAULT_BUTTON_TO_OUTER_RATIO = 0.92;
     private static final double DEFAULT_SAFE_TO_OUTER_RATIO = 0.76;

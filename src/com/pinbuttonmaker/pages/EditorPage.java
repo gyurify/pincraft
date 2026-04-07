@@ -90,6 +90,14 @@ public class EditorPage extends JPanel {
 
     private static final Color TEXT_PRIMARY = new Color(240, 244, 250);
     private static final Color TEXT_MUTED = new Color(188, 197, 211);
+    private static final Color FIELD_BG = new Color(57, 65, 76);
+    private static final Color FIELD_BORDER = new Color(84, 95, 111);
+    private static final Color FIELD_TEXT = TEXT_PRIMARY;
+    private static final Color SOFT_BUTTON_BG = new Color(64, 72, 84);
+    private static final Color HINT_TEXT = new Color(150, 160, 175);
+    private static final Color BUTTON_FACE = new Color(247, 249, 253);
+    private static final Color PREVIEW_FRAME = new Color(198, 204, 214);
+    private static final Color DEEP_TEXT = new Color(30, 34, 40);
 
     private static final Color TAB_BG = new Color(43, 50, 60);
     private static final Color TAB_BORDER = new Color(56, 65, 77);
@@ -481,11 +489,11 @@ public class EditorPage extends JPanel {
     private JTextField createInputField() {
         JTextField field = new JTextField();
         field.setFont(new Font("SansSerif", Font.PLAIN, 13));
-        field.setForeground(TEXT_PRIMARY);
-        field.setBackground(new Color(57, 65, 76));
-        field.setCaretColor(TEXT_PRIMARY);
+        field.setForeground(FIELD_TEXT);
+        field.setBackground(FIELD_BG);
+        field.setCaretColor(FIELD_TEXT);
         field.setBorder(BorderFactory.createCompoundBorder(
-            BorderFactory.createLineBorder(new Color(84, 95, 111)),
+            BorderFactory.createLineBorder(FIELD_BORDER),
             BorderFactory.createEmptyBorder(8, 10, 8, 10)
         ));
         field.setMaximumSize(new Dimension(Integer.MAX_VALUE, 36));
@@ -496,9 +504,9 @@ public class EditorPage extends JPanel {
     private JComboBox<String> createFontDropdown() {
         JComboBox<String> dropdown = new JComboBox<>(FONT_CHOICES);
         dropdown.setFont(new Font("SansSerif", Font.PLAIN, 13));
-        dropdown.setForeground(TEXT_PRIMARY);
-        dropdown.setBackground(new Color(57, 65, 76));
-        dropdown.setBorder(BorderFactory.createLineBorder(new Color(84, 95, 111)));
+        dropdown.setForeground(FIELD_TEXT);
+        dropdown.setBackground(FIELD_BG);
+        dropdown.setBorder(BorderFactory.createLineBorder(FIELD_BORDER));
         dropdown.setMaximumSize(new Dimension(Integer.MAX_VALUE, 32));
         dropdown.setAlignmentX(Component.LEFT_ALIGNMENT);
         return dropdown;
@@ -509,10 +517,10 @@ public class EditorPage extends JPanel {
         button.setFocusPainted(false);
         button.setHorizontalAlignment(SwingConstants.LEFT);
         button.setFont(new Font("SansSerif", Font.BOLD, 12));
-        button.setForeground(TEXT_PRIMARY);
-        button.setBackground(new Color(57, 65, 76));
+        button.setForeground(FIELD_TEXT);
+        button.setBackground(FIELD_BG);
         button.setBorder(BorderFactory.createCompoundBorder(
-            BorderFactory.createLineBorder(new Color(84, 95, 111)),
+            BorderFactory.createLineBorder(FIELD_BORDER),
             BorderFactory.createEmptyBorder(8, 10, 8, 10)
         ));
         button.setCursor(new Cursor(Cursor.HAND_CURSOR));
@@ -546,9 +554,9 @@ public class EditorPage extends JPanel {
         button.setFocusPainted(false);
         button.setFocusable(false);
         button.setFont(new Font("SansSerif", Font.BOLD, 12));
-        button.setForeground(TEXT_PRIMARY);
-        button.setBackground(new Color(64, 72, 84));
-        button.setBorder(BorderFactory.createLineBorder(new Color(90, 100, 116)));
+        button.setForeground(BUTTON_TEXT);
+        button.setBackground(SOFT_BUTTON_BG);
+        button.setBorder(BorderFactory.createLineBorder(BUTTON_BORDER));
         button.setCursor(new Cursor(Cursor.HAND_CURSOR));
 
         Dimension size = new Dimension(24, 22);
@@ -566,7 +574,7 @@ public class EditorPage extends JPanel {
         button.setHorizontalAlignment(SwingConstants.CENTER);
         button.setFont(new Font("SansSerif", Font.BOLD, 14));
         button.setForeground(BUTTON_TEXT);
-        button.setBackground(new Color(64, 72, 84));
+        button.setBackground(SOFT_BUTTON_BG);
         button.setBorder(BorderFactory.createLineBorder(BUTTON_BORDER));
         button.setCursor(new Cursor(Cursor.HAND_CURSOR));
 
@@ -652,7 +660,7 @@ public class EditorPage extends JPanel {
 
         layerInfoLabel = new JLabel("Drag tabs to reorder | Double-click to hide | Click x to remove");
         layerInfoLabel.setFont(new Font("SansSerif", Font.PLAIN, 12));
-        layerInfoLabel.setForeground(new Color(150, 160, 175));
+        layerInfoLabel.setForeground(HINT_TEXT);
         layerInfoLabel.setBorder(new EmptyBorder(0, 4, 0, 2));
 
         content.add(tabsScrollPane, BorderLayout.CENTER);
@@ -954,7 +962,7 @@ public class EditorPage extends JPanel {
             return;
         }
 
-        Color initial = projectData.getButtonBackgroundColor() == null ? new Color(247, 249, 253) : projectData.getButtonBackgroundColor();
+        Color initial = projectData.getButtonBackgroundColor() == null ? BUTTON_FACE : projectData.getButtonBackgroundColor();
         Color chosen = JColorChooser.showDialog(this, "Choose Button Background", initial);
         if (chosen == null) {
             return;
@@ -966,11 +974,11 @@ public class EditorPage extends JPanel {
     }
 
     private void applyBackgroundColorButtonStyle(Color color) {
-        Color appliedColor = color == null ? new Color(247, 249, 253) : color;
+        Color appliedColor = color == null ? BUTTON_FACE : color;
         backgroundColorButton.setBackground(appliedColor);
 
         int luminance = (appliedColor.getRed() * 299 + appliedColor.getGreen() * 587 + appliedColor.getBlue() * 114) / 1000;
-        backgroundColorButton.setForeground(luminance < 140 ? Color.WHITE : new Color(30, 34, 40));
+        backgroundColorButton.setForeground(luminance < 140 ? Color.WHITE : DEEP_TEXT);
 
         String hex = String.format("#%02X%02X%02X", appliedColor.getRed(), appliedColor.getGreen(), appliedColor.getBlue());
         backgroundColorButton.setText("Background: " + hex);
@@ -1325,20 +1333,20 @@ public class EditorPage extends JPanel {
             setPreferredSize(new Dimension(190, 170));
             setLayout(new BorderLayout(0, 6));
             setBorder(BorderFactory.createCompoundBorder(
-                BorderFactory.createLineBorder(new Color(198, 204, 214)),
+                BorderFactory.createLineBorder(PREVIEW_FRAME),
                 BorderFactory.createEmptyBorder(6, 6, 6, 6)
             ));
 
             previewLabel = new JLabel("No image", SwingConstants.CENTER);
             previewLabel.setOpaque(true);
-            previewLabel.setBackground(new Color(242, 245, 250));
-            previewLabel.setForeground(new Color(96, 104, 120));
+            previewLabel.setBackground(BUTTON_FACE);
+            previewLabel.setForeground(TEXT_MUTED);
             previewLabel.setPreferredSize(new Dimension(PREVIEW_WIDTH, PREVIEW_HEIGHT));
-            previewLabel.setBorder(BorderFactory.createLineBorder(new Color(210, 216, 227)));
+            previewLabel.setBorder(BorderFactory.createLineBorder(PREVIEW_FRAME));
 
             captionLabel = new JLabel("Select an image", SwingConstants.CENTER);
             captionLabel.setFont(new Font("SansSerif", Font.PLAIN, 11));
-            captionLabel.setForeground(new Color(92, 99, 115));
+            captionLabel.setForeground(TEXT_MUTED);
 
             add(previewLabel, BorderLayout.CENTER);
             add(captionLabel, BorderLayout.SOUTH);
@@ -1824,7 +1832,7 @@ public class EditorPage extends JPanel {
             activeLayerLabel.setText("Active Layer: -");
             textInputField.setText("");
             fontDropdown.setSelectedIndex(0);
-            applyColorButtonStyle(new Color(57, 65, 76));
+            applyColorButtonStyle(FIELD_BG);
             bendSlider.setValue(0);
             bendValueLabel.setText("0 deg");
 
@@ -1846,7 +1854,7 @@ public class EditorPage extends JPanel {
             } else {
                 textInputField.setText("Photo layer is not text-editable.");
                 fontDropdown.setSelectedIndex(0);
-                applyColorButtonStyle(new Color(57, 65, 76));
+                applyColorButtonStyle(FIELD_BG);
                 bendSlider.setValue(0);
                 bendValueLabel.setText("0 deg");
             }
@@ -1907,7 +1915,7 @@ public class EditorPage extends JPanel {
         removeLayerButton.setEnabled(hasLayer);
         topUploadButton.setEnabled(projectData != null);
         if (backgroundColorButton != null) {
-            Color currentBackground = projectData == null ? new Color(247, 249, 253) : projectData.getButtonBackgroundColor();
+            Color currentBackground = projectData == null ? BUTTON_FACE : projectData.getButtonBackgroundColor();
             applyBackgroundColorButtonStyle(currentBackground);
             backgroundColorButton.setEnabled(projectData != null);
         }
@@ -1937,11 +1945,11 @@ public class EditorPage extends JPanel {
     }
 
     private void applyColorButtonStyle(Color color) {
-        Color appliedColor = color == null ? new Color(57, 65, 76) : color;
+        Color appliedColor = color == null ? FIELD_BG : color;
         colorPickerButton.setBackground(appliedColor);
 
         int luminance = (appliedColor.getRed() * 299 + appliedColor.getGreen() * 587 + appliedColor.getBlue() * 114) / 1000;
-        colorPickerButton.setForeground(luminance < 140 ? Color.WHITE : new Color(30, 34, 40));
+        colorPickerButton.setForeground(luminance < 140 ? Color.WHITE : DEEP_TEXT);
 
         String hex = String.format("#%02X%02X%02X", appliedColor.getRed(), appliedColor.getGreen(), appliedColor.getBlue());
         colorPickerButton.setText("Color: " + hex);

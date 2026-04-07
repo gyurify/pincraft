@@ -235,7 +235,7 @@ public class LoginPage extends JPanel {
         content.setBorder(new EmptyBorder(10, 16, 16, 16));
         content.setMaximumSize(new Dimension(700, Integer.MAX_VALUE));
 
-        JLabel title = new JLabel("Pin Button Maker");
+        JLabel title = new JLabel("PinCraft");
         title.setFont(new Font("SansSerif", Font.BOLD, 48));
         title.setForeground(new Color(36, 43, 60));
         title.setAlignmentX(Component.CENTER_ALIGNMENT);
@@ -1005,7 +1005,7 @@ public class LoginPage extends JPanel {
             int x = (getWidth() - size) / 2;
             int y = (getHeight() - size) / 2;
 
-            g2.setColor(new Color(47, 103, 232));
+            g2.setColor(PRIMARY_BLUE);
             g2.fillOval(x, y, size, size);
 
             g2.setColor(Color.WHITE);
@@ -1089,5 +1089,6 @@ public class LoginPage extends JPanel {
             g2.dispose();
             super.paintComponent(graphics);
         }
+
     }
 }
