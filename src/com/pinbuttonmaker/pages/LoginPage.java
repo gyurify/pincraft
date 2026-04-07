@@ -217,7 +217,7 @@ public class LoginPage extends JPanel {
 
         SwingUtilities.invokeLater(this::applyResponsiveLayout);
     }
-
+    
     private GridBagConstraints createCenterConstraints() {
         GridBagConstraints constraints = new GridBagConstraints();
         constraints.gridx = 0;
@@ -235,7 +235,7 @@ public class LoginPage extends JPanel {
         content.setBorder(new EmptyBorder(10, 16, 16, 16));
         content.setMaximumSize(new Dimension(700, Integer.MAX_VALUE));
 
-        JLabel title = new JLabel("Pin Button Maker");
+        JLabel title = new JLabel("PinCraft");
         title.setFont(new Font("SansSerif", Font.BOLD, 48));
         title.setForeground(new Color(36, 43, 60));
         title.setAlignmentX(Component.CENTER_ALIGNMENT);

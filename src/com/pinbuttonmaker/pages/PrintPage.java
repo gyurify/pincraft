@@ -307,7 +307,7 @@ public class PrintPage extends JPanel {
                 + layout.getRows()
                 + ") at "
                 + button.displayLabel
-                + " + 1 cm size + 1 cm bleed"
+                + ""
         );
     }
 
