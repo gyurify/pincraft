@@ -26,6 +26,7 @@ import java.util.Map;
 
 import javax.swing.JComponent;
 import javax.swing.JPanel;
+import javax.swing.SwingUtilities;
 import javax.swing.TransferHandler;
 
 public class PaperPreviewPanel extends JPanel {
@@ -64,8 +65,10 @@ public class PaperPreviewPanel extends JPanel {
     private final Map<String, PrintableItem> availableItemsById;
     private final List<String> slotAssignments;
 
+    private int pressedSlotIndex;
     private int dragSourceSlotIndex;
     private boolean dragExportTriggered;
+    private Point dragStartPoint;
 
     public PaperPreviewPanel() {
         setOpaque(true);
@@ -90,8 +93,10 @@ public class PaperPreviewPanel extends JPanel {
 
         this.availableItemsById = new LinkedHashMap<>();
         this.slotAssignments = new ArrayList<>();
+        this.pressedSlotIndex = -1;
         this.dragSourceSlotIndex = -1;
         this.dragExportTriggered = false;
+        this.dragStartPoint = null;
 
         ensureSlotAssignmentCapacity(layoutInfo.getTotalPins());
 
@@ -135,6 +140,24 @@ public class PaperPreviewPanel extends JPanel {
 
         removeUnavailableAssignments();
         repaint();
+    }
+
+    public void clearAssignmentsForItem(String itemId) {
+        if (itemId == null || itemId.trim().isEmpty()) {
+            return;
+        }
+
+        boolean changed = false;
+        for (int i = 0; i < slotAssignments.size(); i++) {
+            if (itemId.equals(slotAssignments.get(i))) {
+                slotAssignments.set(i, null);
+                changed = true;
+            }
+        }
+
+        if (changed) {
+            repaint();
+        }
     }
 
     public LayoutInfo getLayoutInfo() {
@@ -428,15 +451,21 @@ public class PaperPreviewPanel extends JPanel {
         MouseAdapter mouseAdapter = new MouseAdapter() {
             @Override
             public void mousePressed(MouseEvent event) {
-                int slotIndex = getSlotIndexAtPoint(event.getPoint());
-                if (slotIndex < 0 || slotIndex >= slotAssignments.size() || slotAssignments.get(slotIndex) == null) {
-                    dragSourceSlotIndex = -1;
-                    dragExportTriggered = false;
+                if (!SwingUtilities.isLeftMouseButton(event)) {
+                    resetDragState();
                     return;
                 }
 
+                int slotIndex = getSlotIndexAtPoint(event.getPoint());
+                if (slotIndex < 0 || slotIndex >= slotAssignments.size() || slotAssignments.get(slotIndex) == null) {
+                    resetDragState();
+                    return;
+                }
+
+                pressedSlotIndex = slotIndex;
                 dragSourceSlotIndex = slotIndex;
                 dragExportTriggered = false;
+                dragStartPoint = event.getPoint();
             }
 
             @Override
@@ -445,9 +474,17 @@ public class PaperPreviewPanel extends JPanel {
                     return;
                 }
 
+                if (dragStartPoint != null) {
+                    int dx = Math.abs(event.getX() - dragStartPoint.x);
+                    int dy = Math.abs(event.getY() - dragStartPoint.y);
+                    if (dx < 5 && dy < 5) {
+                        return;
+                    }
+                }
+
                 String assignedId = slotAssignments.get(dragSourceSlotIndex);
                 if (assignedId == null) {
-                    dragSourceSlotIndex = -1;
+                    resetDragState();
                     return;
                 }
 
@@ -460,8 +497,13 @@ public class PaperPreviewPanel extends JPanel {
 
             @Override
             public void mouseReleased(MouseEvent event) {
-                dragSourceSlotIndex = -1;
-                dragExportTriggered = false;
+                int releasedSlotIndex = getSlotIndexAtPoint(event.getPoint());
+                if (!dragExportTriggered && pressedSlotIndex >= 0 && pressedSlotIndex == releasedSlotIndex) {
+                    clearSlotAssignment(pressedSlotIndex);
+                    repaint();
+                }
+
+                resetDragState();
             }
         };
 
@@ -491,6 +533,13 @@ public class PaperPreviewPanel extends JPanel {
             return;
         }
         slotAssignments.set(slotIndex, itemId);
+    }
+
+    private void clearSlotAssignment(int slotIndex) {
+        if (slotIndex < 0 || slotIndex >= slotAssignments.size()) {
+            return;
+        }
+        slotAssignments.set(slotIndex, null);
     }
 
     private void moveOrSwapSlotItem(int fromIndex, int toIndex) {
@@ -642,13 +691,19 @@ public class PaperPreviewPanel extends JPanel {
 
         @Override
         protected void exportDone(JComponent source, Transferable data, int action) {
-            dragSourceSlotIndex = -1;
-            dragExportTriggered = false;
+            resetDragState();
         }
     }
 
     private double clamp(double value, double min, double max) {
         return Math.max(min, Math.min(max, value));
+    }
+
+    private void resetDragState() {
+        pressedSlotIndex = -1;
+        dragSourceSlotIndex = -1;
+        dragExportTriggered = false;
+        dragStartPoint = null;
     }
 
     public static final class PrintableItem {

@@ -34,6 +34,7 @@ import javax.swing.JPanel;
 import javax.swing.JScrollPane;
 import javax.swing.JSplitPane;
 import javax.swing.SwingConstants;
+import javax.swing.SwingUtilities;
 import javax.swing.TransferHandler;
 import javax.swing.filechooser.FileNameExtensionFilter;
 
@@ -474,6 +475,7 @@ public class PrintPage extends JPanel {
         item.add(previewBox, BorderLayout.CENTER);
 
         installGalleryDrag(item, itemData.getItemId());
+        installGalleryClearOnClick(item, itemData.getItemId());
 
         return item;
     }
@@ -511,6 +513,21 @@ public class PrintPage extends JPanel {
         applyDragSupportRecursive(root, transferHandler, dragStarter);
     }
 
+    private void installGalleryClearOnClick(JComponent root, String itemId) {
+        MouseAdapter clickClearHandler = new MouseAdapter() {
+            @Override
+            public void mouseClicked(MouseEvent event) {
+                if (!SwingUtilities.isLeftMouseButton(event) || event.getClickCount() != 1) {
+                    return;
+                }
+
+                paperPreviewPanel.clearAssignmentsForItem(itemId);
+            }
+        };
+
+        applyMouseListenerRecursive(root, clickClearHandler);
+    }
+
     private void applyDragSupportRecursive(Component component, TransferHandler transferHandler, MouseAdapter dragStarter) {
         if (component instanceof JComponent) {
             JComponent dragComponent = (JComponent) component;
@@ -521,6 +538,16 @@ public class PrintPage extends JPanel {
         if (component instanceof Container) {
             for (Component child : ((Container) component).getComponents()) {
                 applyDragSupportRecursive(child, transferHandler, dragStarter);
+            }
+        }
+    }
+
+    private void applyMouseListenerRecursive(Component component, MouseAdapter mouseAdapter) {
+        component.addMouseListener(mouseAdapter);
+
+        if (component instanceof Container) {
+            for (Component child : ((Container) component).getComponents()) {
+                applyMouseListenerRecursive(child, mouseAdapter);
             }
         }
     }
