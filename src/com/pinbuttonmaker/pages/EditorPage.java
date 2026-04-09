@@ -1,15 +1,16 @@
 package com.pinbuttonmaker.pages;
 
+import java.awt.AWTException;
 import java.awt.BorderLayout;
 import java.awt.Color;
 import java.awt.Component;
 import java.awt.Cursor;
 import java.awt.Dimension;
 import java.awt.Font;
-import java.awt.RenderingHints;
-import java.awt.Rectangle;
-import java.awt.Graphics2D;
 import java.awt.Graphics;
+import java.awt.Graphics2D;
+import java.awt.GraphicsDevice;
+import java.awt.GraphicsEnvironment;
 import java.awt.FontMetrics;
 import java.awt.FlowLayout;
 import java.awt.GridBagConstraints;
@@ -18,10 +19,15 @@ import java.awt.GridLayout;
 import java.awt.Image;
 import java.awt.Insets;
 import java.awt.Point;
+import java.awt.Rectangle;
+import java.awt.RenderingHints;
+import java.awt.Robot;
 import java.awt.Window;
 import java.awt.datatransfer.DataFlavor;
 import java.awt.event.ComponentAdapter;
 import java.awt.event.ComponentEvent;
+import java.awt.event.KeyAdapter;
+import java.awt.event.KeyEvent;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.awt.image.BufferedImage;
@@ -31,6 +37,7 @@ import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.function.Consumer;
 
 import javax.imageio.ImageIO;
 import javax.swing.BorderFactory;
@@ -139,6 +146,7 @@ public class EditorPage extends JPanel {
     private JButton centerHorizontalPhotoButton;
     private JButton centerVerticalPhotoButton;
     private JButton backgroundColorButton;
+    private JButton backgroundEyedropperButton;
 
     private JButton addTextLayerButton;
     private JButton addPhotoLayerButton;
@@ -398,9 +406,23 @@ public class EditorPage extends JPanel {
         JLabel backgroundLabel = createMutedLabel("Button Background");
         backgroundColorButton = createColorPickerButton();
         backgroundColorButton.addActionListener(event -> chooseButtonBackgroundColor());
+        backgroundEyedropperButton = createTopButton("Eyedropper");
+        backgroundEyedropperButton.setFont(new Font("SansSerif", Font.BOLD, 11));
+        backgroundEyedropperButton.setPreferredSize(new Dimension(104, 36));
+        backgroundEyedropperButton.setMinimumSize(new Dimension(104, 36));
+        backgroundEyedropperButton.setMaximumSize(new Dimension(104, 36));
+        backgroundEyedropperButton.addActionListener(event -> pickButtonBackgroundColorFromScreen());
+
+        JPanel backgroundRow = new JPanel(new BorderLayout(8, 0));
+        backgroundRow.setOpaque(false);
+        backgroundRow.setAlignmentX(Component.LEFT_ALIGNMENT);
+        backgroundRow.setMaximumSize(new Dimension(Integer.MAX_VALUE, 36));
+        backgroundRow.add(backgroundColorButton, BorderLayout.CENTER);
+        backgroundRow.add(backgroundEyedropperButton, BorderLayout.EAST);
+
         section.add(backgroundLabel);
         section.add(Box.createVerticalStrut(4));
-        section.add(backgroundColorButton);
+        section.add(backgroundRow);
 
         section.add(Box.createVerticalStrut(10));
         uploadPhotoButton = createTransformActionButton("Upload Photo");
@@ -963,6 +985,33 @@ public class EditorPage extends JPanel {
         projectData.setButtonBackgroundColor(chosen);
         applyBackgroundColorButtonStyle(chosen);
         previewPanel.repaint();
+    }
+
+    private void pickButtonBackgroundColorFromScreen() {
+        if (projectData == null) {
+            return;
+        }
+
+        try {
+            Window owner = SwingUtilities.getWindowAncestor(this);
+            ScreenColorPickerOverlay overlay = new ScreenColorPickerOverlay(owner, chosen -> {
+                if (chosen == null || projectData == null) {
+                    return;
+                }
+
+                projectData.setButtonBackgroundColor(chosen);
+                applyBackgroundColorButtonStyle(chosen);
+                previewPanel.repaint();
+            });
+            overlay.openPicker();
+        } catch (AWTException exception) {
+            JOptionPane.showMessageDialog(
+                this,
+                "Eyedropper is not available on this system.\n" + exception.getMessage(),
+                "Eyedropper",
+                JOptionPane.ERROR_MESSAGE
+            );
+        }
     }
 
     private void applyBackgroundColorButtonStyle(Color color) {
@@ -1911,6 +1960,9 @@ public class EditorPage extends JPanel {
             applyBackgroundColorButtonStyle(currentBackground);
             backgroundColorButton.setEnabled(projectData != null);
         }
+        if (backgroundEyedropperButton != null) {
+            backgroundEyedropperButton.setEnabled(projectData != null);
+        }
 
         if (sizeSliderRow.getParent() != null) {
             sizeSliderRow.getParent().revalidate();
@@ -2011,6 +2063,197 @@ public class EditorPage extends JPanel {
             return null;
         }
         return projectData.getLayers().get(activeLayerIndex);
+    }
+
+    private static final class ScreenColorPickerOverlay extends Window {
+        private static final Color INSTRUCTION_BG = new Color(18, 22, 28, 220);
+        private static final Color INSTRUCTION_FG = Color.WHITE;
+        private static final Color CROSSHAIR_COLOR = new Color(255, 255, 255, 220);
+        private static final Color SWATCH_BORDER = new Color(20, 20, 20);
+        private static final Font OVERLAY_FONT = new Font("SansSerif", Font.BOLD, 13);
+
+        private final Rectangle virtualBounds;
+        private final BufferedImage screenCapture;
+        private final Consumer<Color> onColorPicked;
+
+        private Point hoverPoint;
+        private boolean closed;
+
+        private ScreenColorPickerOverlay(Window owner, Consumer<Color> onColorPicked) throws AWTException {
+            super(owner);
+            this.virtualBounds = calculateVirtualBounds();
+            this.screenCapture = new Robot().createScreenCapture(virtualBounds);
+            this.onColorPicked = onColorPicked;
+            this.hoverPoint = new Point(
+                virtualBounds.x + (virtualBounds.width / 2),
+                virtualBounds.y + (virtualBounds.height / 2)
+            );
+            this.closed = false;
+
+            setBounds(virtualBounds);
+            setAlwaysOnTop(true);
+            setCursor(Cursor.getPredefinedCursor(Cursor.CROSSHAIR_CURSOR));
+
+            installInteraction();
+        }
+
+        private void openPicker() {
+            setVisible(true);
+            requestFocus();
+            toFront();
+        }
+
+        private void installInteraction() {
+            MouseAdapter mouseHandler = new MouseAdapter() {
+                @Override
+                public void mouseMoved(MouseEvent event) {
+                    updateHoverPoint(event);
+                }
+
+                @Override
+                public void mouseDragged(MouseEvent event) {
+                    updateHoverPoint(event);
+                }
+
+                @Override
+                public void mousePressed(MouseEvent event) {
+                    updateHoverPoint(event);
+                    if (SwingUtilities.isRightMouseButton(event)) {
+                        closeWithoutSelection();
+                        return;
+                    }
+
+                    if (SwingUtilities.isLeftMouseButton(event)) {
+                        closeWithSelection(readColorAt(event.getPoint()));
+                    }
+                }
+            };
+
+            addMouseListener(mouseHandler);
+            addMouseMotionListener(mouseHandler);
+
+            addKeyListener(new KeyAdapter() {
+                @Override
+                public void keyPressed(KeyEvent event) {
+                    if (event.getKeyCode() == KeyEvent.VK_ESCAPE) {
+                        closeWithoutSelection();
+                    }
+                }
+            });
+        }
+
+        @Override
+        public void paint(Graphics graphics) {
+            Graphics2D g2 = (Graphics2D) graphics.create();
+            g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+
+            g2.drawImage(screenCapture, 0, 0, null);
+            g2.setColor(new Color(0, 0, 0, 28));
+            g2.fillRect(0, 0, getWidth(), getHeight());
+
+            drawCrosshair(g2);
+            drawInstructionBox(g2);
+
+            g2.dispose();
+        }
+
+        private void drawCrosshair(Graphics2D g2) {
+            Point localPoint = getLocalHoverPoint();
+            if (localPoint == null) {
+                return;
+            }
+
+            int x = localPoint.x;
+            int y = localPoint.y;
+
+            g2.setColor(CROSSHAIR_COLOR);
+            g2.drawLine(x - 14, y, x + 14, y);
+            g2.drawLine(x, y - 14, x, y + 14);
+            g2.drawOval(x - 8, y - 8, 16, 16);
+        }
+
+        private void drawInstructionBox(Graphics2D g2) {
+            Point localPoint = getLocalHoverPoint();
+            Color hoverColor = localPoint == null ? Color.WHITE : readColorAt(localPoint);
+            String hex = String.format("#%02X%02X%02X", hoverColor.getRed(), hoverColor.getGreen(), hoverColor.getBlue());
+            String message = "Click to pick color | Right click or Esc to cancel";
+
+            g2.setFont(OVERLAY_FONT);
+            FontMetrics metrics = g2.getFontMetrics();
+            int boxWidth = Math.max(metrics.stringWidth(message), metrics.stringWidth(hex) + 56) + 28;
+            int boxHeight = 58;
+            int x = 18;
+            int y = 18;
+
+            g2.setColor(INSTRUCTION_BG);
+            g2.fillRoundRect(x, y, boxWidth, boxHeight, 14, 14);
+
+            g2.setColor(hoverColor);
+            g2.fillRoundRect(x + 14, y + 16, 26, 26, 8, 8);
+            g2.setColor(SWATCH_BORDER);
+            g2.drawRoundRect(x + 14, y + 16, 26, 26, 8, 8);
+
+            g2.setColor(INSTRUCTION_FG);
+            g2.drawString(hex, x + 50, y + 34);
+            g2.setFont(new Font("SansSerif", Font.PLAIN, 12));
+            g2.drawString(message, x + 14, y + 52);
+        }
+
+        private void updateHoverPoint(MouseEvent event) {
+            hoverPoint = new Point(event.getXOnScreen(), event.getYOnScreen());
+            repaint();
+        }
+
+        private Point getLocalHoverPoint() {
+            if (hoverPoint == null) {
+                return null;
+            }
+            return new Point(hoverPoint.x - virtualBounds.x, hoverPoint.y - virtualBounds.y);
+        }
+
+        private Color readColorAt(Point localPoint) {
+            if (localPoint == null) {
+                return Color.WHITE;
+            }
+
+            int clampedX = Math.max(0, Math.min(screenCapture.getWidth() - 1, localPoint.x));
+            int clampedY = Math.max(0, Math.min(screenCapture.getHeight() - 1, localPoint.y));
+            return new Color(screenCapture.getRGB(clampedX, clampedY));
+        }
+
+        private void closeWithSelection(Color color) {
+            if (closed) {
+                return;
+            }
+
+            closed = true;
+            dispose();
+            if (onColorPicked != null) {
+                onColorPicked.accept(color);
+            }
+        }
+
+        private void closeWithoutSelection() {
+            if (closed) {
+                return;
+            }
+
+            closed = true;
+            dispose();
+            if (onColorPicked != null) {
+                onColorPicked.accept(null);
+            }
+        }
+
+        private static Rectangle calculateVirtualBounds() {
+            Rectangle bounds = null;
+            GraphicsEnvironment environment = GraphicsEnvironment.getLocalGraphicsEnvironment();
+            for (GraphicsDevice device : environment.getScreenDevices()) {
+                Rectangle deviceBounds = device.getDefaultConfiguration().getBounds();
+                bounds = bounds == null ? new Rectangle(deviceBounds) : bounds.union(deviceBounds);
+            }
+            return bounds == null ? new Rectangle(0, 0, 1, 1) : bounds;
+        }
     }
 }
 
