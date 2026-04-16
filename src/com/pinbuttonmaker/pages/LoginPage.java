@@ -41,27 +41,44 @@ import com.pinbuttonmaker.ui.components.CustomButton;
 import com.pinbuttonmaker.util.Utils;
 
 public class LoginPage extends JPanel {
-    private static final Color PAGE_BG = new Color(236, 238, 242);
-    private static final Color CARD_BG = new Color(246, 247, 250);
-    private static final Color CARD_BORDER = new Color(211, 215, 222);
+    private static final Color PAGE_BG = UIStyles.SHELL_BG;
+    private static final Color CARD_BG = UIStyles.PANEL_BG;
+    private static final Color CARD_BORDER = UIStyles.PANEL_BORDER;
 
-    private static final Color SEGMENT_BG = new Color(226, 228, 233);
-    private static final Color TAB_SELECTED_BG = Color.WHITE;
-    private static final Color TAB_SELECTED_TEXT = new Color(20, 23, 31);
-    private static final Color TAB_IDLE_TEXT = new Color(100, 110, 133);
+    private static final Color SEGMENT_BG = new Color(39, 44, 52);
+    private static final Color TAB_SELECTED_BG = UIStyles.PANEL_ALT_BG;
+    private static final Color TAB_SELECTED_TEXT = UIStyles.TEXT_PRIMARY;
+    private static final Color TAB_IDLE_TEXT = UIStyles.TEXT_MUTED;
 
-    private static final Color INPUT_BG = new Color(241, 243, 247);
-    private static final Color INPUT_BORDER = new Color(208, 213, 223);
-    private static final Color INPUT_ICON = new Color(111, 121, 141);
-    private static final Color INPUT_TEXT = new Color(33, 40, 55);
-    private static final Color INPUT_PLACEHOLDER = new Color(125, 133, 151);
+    private static final Color INPUT_BG = UIStyles.PANEL_ALT_BG;
+    private static final Color INPUT_BORDER = UIStyles.PANEL_BORDER;
+    private static final Color INPUT_ICON = new Color(154, 167, 188);
+    private static final Color INPUT_TEXT = UIStyles.TEXT_PRIMARY;
+    private static final Color INPUT_PLACEHOLDER = new Color(154, 167, 188);
 
-    private static final Color MUTED_TEXT = new Color(95, 104, 124);
-    private static final Color LINK_COLOR = new Color(27, 90, 244);
-    private static final Color PRIMARY_BLUE = new Color(47, 103, 232);
-    private static final Color PRIMARY_BLUE_HOVER = new Color(39, 93, 213);
-    private static final Color STATUS_SUCCESS = new Color(47, 122, 84);
-    private static final Color STATUS_ERROR = new Color(181, 62, 62);
+    private static final Color MUTED_TEXT = UIStyles.TEXT_MUTED;
+    private static final Color LINK_COLOR = UIStyles.ACTION_BLUE;
+    private static final Color PRIMARY_BLUE = UIStyles.ACTION_BLUE;
+    private static final Color PRIMARY_BLUE_HOVER = UIStyles.ACTION_BLUE_HOVER;
+    private static final Color STATUS_SUCCESS = UIStyles.ACTION_GREEN;
+    private static final Color STATUS_ERROR = new Color(236, 102, 102);
+
+    private static final Color LIGHT_PAGE_BG = new Color(236, 238, 242);
+    private static final Color LIGHT_CARD_BG = new Color(246, 247, 250);
+    private static final Color LIGHT_CARD_BORDER = new Color(211, 215, 222);
+    private static final Color LIGHT_SEGMENT_BG = new Color(226, 228, 233);
+    private static final Color LIGHT_TAB_SELECTED_BG = Color.WHITE;
+    private static final Color LIGHT_TAB_SELECTED_TEXT = new Color(20, 23, 31);
+    private static final Color LIGHT_TAB_IDLE_TEXT = new Color(100, 110, 133);
+    private static final Color LIGHT_INPUT_BG = new Color(241, 243, 247);
+    private static final Color LIGHT_INPUT_BORDER = new Color(208, 213, 223);
+    private static final Color LIGHT_INPUT_ICON = new Color(111, 121, 141);
+    private static final Color LIGHT_INPUT_TEXT = new Color(33, 40, 55);
+    private static final Color LIGHT_INPUT_PLACEHOLDER = new Color(125, 133, 151);
+    private static final Color LIGHT_MUTED_TEXT = new Color(95, 104, 124);
+    private static final Color LIGHT_LINK_COLOR = new Color(27, 90, 244);
+    private static final Color LIGHT_STATUS_SUCCESS = new Color(47, 122, 84);
+    private static final Color LIGHT_STATUS_ERROR = new Color(181, 62, 62);
 
     private static final String EMAIL_PLACEHOLDER = "Enter your email";
     private static final String PASSWORD_PLACEHOLDER = "Enter your password";
@@ -136,7 +153,7 @@ public class LoginPage extends JPanel {
         this.appState = appState;
 
         setLayout(new GridBagLayout());
-        setBackground(PAGE_BG);
+        setBackground(pageBg());
         UIStyles.applyPagePadding(this);
 
         JPanel content = createPageContent();
@@ -217,6 +234,78 @@ public class LoginPage extends JPanel {
 
         SwingUtilities.invokeLater(this::applyResponsiveLayout);
     }
+
+    private Color pageBg() {
+        return appState.isDarkMode() ? PAGE_BG : LIGHT_PAGE_BG;
+    }
+
+    private Color cardBg() {
+        return appState.isDarkMode() ? CARD_BG : LIGHT_CARD_BG;
+    }
+
+    private Color cardBorder() {
+        return appState.isDarkMode() ? CARD_BORDER : LIGHT_CARD_BORDER;
+    }
+
+    private Color segmentBg() {
+        return appState.isDarkMode() ? SEGMENT_BG : LIGHT_SEGMENT_BG;
+    }
+
+    private Color tabSelectedBg() {
+        return appState.isDarkMode() ? TAB_SELECTED_BG : LIGHT_TAB_SELECTED_BG;
+    }
+
+    private Color tabSelectedText() {
+        return appState.isDarkMode() ? TAB_SELECTED_TEXT : LIGHT_TAB_SELECTED_TEXT;
+    }
+
+    private Color tabIdleText() {
+        return appState.isDarkMode() ? TAB_IDLE_TEXT : LIGHT_TAB_IDLE_TEXT;
+    }
+
+    private Color inputBg() {
+        return appState.isDarkMode() ? INPUT_BG : LIGHT_INPUT_BG;
+    }
+
+    private Color inputBorder() {
+        return appState.isDarkMode() ? INPUT_BORDER : LIGHT_INPUT_BORDER;
+    }
+
+    private Color inputIcon() {
+        return appState.isDarkMode() ? INPUT_ICON : LIGHT_INPUT_ICON;
+    }
+
+    private Color inputText() {
+        return appState.isDarkMode() ? INPUT_TEXT : LIGHT_INPUT_TEXT;
+    }
+
+    private Color inputPlaceholder() {
+        return appState.isDarkMode() ? INPUT_PLACEHOLDER : LIGHT_INPUT_PLACEHOLDER;
+    }
+
+    private Color mutedText() {
+        return appState.isDarkMode() ? MUTED_TEXT : LIGHT_MUTED_TEXT;
+    }
+
+    private Color linkColor() {
+        return appState.isDarkMode() ? LINK_COLOR : LIGHT_LINK_COLOR;
+    }
+
+    private Color statusSuccess() {
+        return appState.isDarkMode() ? STATUS_SUCCESS : LIGHT_STATUS_SUCCESS;
+    }
+
+    private Color statusError() {
+        return appState.isDarkMode() ? STATUS_ERROR : LIGHT_STATUS_ERROR;
+    }
+
+    private Color titleText() {
+        return appState.isDarkMode() ? UIStyles.TEXT_PRIMARY : new Color(36, 43, 60);
+    }
+
+    private Color fieldLabelText() {
+        return appState.isDarkMode() ? UIStyles.TEXT_PRIMARY : new Color(30, 35, 46);
+    }
     
     private GridBagConstraints createCenterConstraints() {
         GridBagConstraints constraints = new GridBagConstraints();
@@ -237,7 +326,7 @@ public class LoginPage extends JPanel {
 
         JLabel title = new JLabel("PinCraft");
         title.setFont(new Font("SansSerif", Font.BOLD, 48));
-        title.setForeground(new Color(36, 43, 60));
+        title.setForeground(titleText());
         title.setAlignmentX(Component.CENTER_ALIGNMENT);
         content.add(title);
 
@@ -245,7 +334,7 @@ public class LoginPage extends JPanel {
 
         JLabel subtitle = new JLabel("Sign in to save designs per account and reset passwords by email.");
         subtitle.setFont(new Font("SansSerif", Font.PLAIN, 14));
-        subtitle.setForeground(MUTED_TEXT);
+        subtitle.setForeground(mutedText());
         subtitle.setAlignmentX(Component.CENTER_ALIGNMENT);
         content.add(subtitle);
 
@@ -254,7 +343,7 @@ public class LoginPage extends JPanel {
     }
 
     private RoundedPanel createCardPanel() {
-        RoundedPanel panel = new RoundedPanel(18, CARD_BG, CARD_BORDER);
+        RoundedPanel panel = new RoundedPanel(18, cardBg(), cardBorder());
         panel.setLayout(new BoxLayout(panel, BoxLayout.Y_AXIS));
         panel.setBorder(new EmptyBorder(18, 20, 16, 20));
         panel.setPreferredSize(new Dimension(590, 420));
@@ -290,17 +379,18 @@ public class LoginPage extends JPanel {
     private void styleTextField(JTextField field) {
         field.setBorder(BorderFactory.createEmptyBorder(0, 4, 0, 4));
         field.setOpaque(false);
-        field.setForeground(INPUT_TEXT);
+        field.setForeground(inputText());
+        field.setCaretColor(inputText());
     }
 
     private RoundedPanel createInputRow(String iconText, JComponent field, JButton trailing) {
-        RoundedPanel row = new RoundedPanel(11, INPUT_BG, INPUT_BORDER);
+        RoundedPanel row = new RoundedPanel(11, inputBg(), inputBorder());
         row.setLayout(new BorderLayout(8, 0));
         row.setBorder(new EmptyBorder(8, 10, 8, 10));
         row.setAlignmentX(Component.LEFT_ALIGNMENT);
 
         JLabel icon = new JLabel(iconText, SwingConstants.CENTER);
-        icon.setForeground(INPUT_ICON);
+        icon.setForeground(inputIcon());
         icon.setPreferredSize(new Dimension(22, 22));
 
         row.add(icon, BorderLayout.WEST);
@@ -338,7 +428,7 @@ public class LoginPage extends JPanel {
         button.setFocusPainted(false);
         button.setContentAreaFilled(false);
         button.setOpaque(false);
-        button.setForeground(LINK_COLOR);
+        button.setForeground(linkColor());
         button.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
         return button;
     }
@@ -362,7 +452,7 @@ public class LoginPage extends JPanel {
 
     private JLabel createStatusLabel() {
         JLabel label = new JLabel(" ");
-        label.setForeground(STATUS_ERROR);
+        label.setForeground(statusError());
         label.setAlignmentX(Component.LEFT_ALIGNMENT);
         label.setVisible(false);
         return label;
@@ -421,12 +511,12 @@ public class LoginPage extends JPanel {
 
         JLabel title = new JLabel("Reset Your Password");
         title.setFont(new Font("SansSerif", Font.BOLD, 22));
-        title.setForeground(new Color(24, 31, 46));
+        title.setForeground(titleText());
         title.setAlignmentX(Component.LEFT_ALIGNMENT);
 
         JLabel help = new JLabel("Use the same form to request a reset code and set a new password.");
         help.setFont(new Font("SansSerif", Font.PLAIN, 13));
-        help.setForeground(MUTED_TEXT);
+        help.setForeground(mutedText());
         help.setAlignmentX(Component.LEFT_ALIGNMENT);
 
         panel.add(title);
@@ -476,7 +566,7 @@ public class LoginPage extends JPanel {
         footerPanel.setAlignmentX(Component.CENTER_ALIGNMENT);
 
         footerPrefixLabel.setFont(new Font("SansSerif", Font.PLAIN, 14));
-        footerPrefixLabel.setForeground(MUTED_TEXT);
+        footerPrefixLabel.setForeground(mutedText());
 
         footerPanel.add(footerPrefixLabel);
         footerPanel.add(Box.createHorizontalStrut(4));
@@ -487,7 +577,7 @@ public class LoginPage extends JPanel {
     }
 
     private JComponent createSegmentControl() {
-        RoundedPanel segmentPanel = new RoundedPanel(12, SEGMENT_BG, SEGMENT_BG);
+        RoundedPanel segmentPanel = new RoundedPanel(12, segmentBg(), segmentBg());
         segmentPanel.setLayout(new GridLayout(1, 2, 6, 0));
         segmentPanel.setBorder(new EmptyBorder(4, 4, 4, 4));
         segmentPanel.add(signInTabButton);
@@ -498,7 +588,7 @@ public class LoginPage extends JPanel {
 
     private JLabel createFieldLabel(String text) {
         JLabel label = new JLabel(text);
-        label.setForeground(new Color(30, 35, 46));
+        label.setForeground(fieldLabelText());
         label.setAlignmentX(Component.LEFT_ALIGNMENT);
         return label;
     }
@@ -548,7 +638,7 @@ public class LoginPage extends JPanel {
         clearResetStatusMessage();
 
         if (showResetSuccessMessage) {
-            showAuthStatusMessage("Password updated. Sign in with your new password.", STATUS_SUCCESS);
+            showAuthStatusMessage("Password updated. Sign in with your new password.", statusSuccess());
         } else {
             clearAuthStatusMessage();
         }
@@ -614,10 +704,10 @@ public class LoginPage extends JPanel {
     }
 
     private void applyTabStyle(JButton button, boolean selected) {
-        button.setForeground(selected ? TAB_SELECTED_TEXT : TAB_IDLE_TEXT);
-        button.setBackground(selected ? TAB_SELECTED_BG : SEGMENT_BG);
+        button.setForeground(selected ? tabSelectedText() : tabIdleText());
+        button.setBackground(selected ? tabSelectedBg() : segmentBg());
         button.setBorder(BorderFactory.createCompoundBorder(
-            BorderFactory.createLineBorder(selected ? new Color(213, 218, 228) : SEGMENT_BG),
+            BorderFactory.createLineBorder(selected ? (appState.isDarkMode() ? UIStyles.PANEL_BORDER : LIGHT_CARD_BORDER) : segmentBg()),
             BorderFactory.createEmptyBorder(8, 12, 8, 12)
         ));
     }
@@ -712,7 +802,7 @@ public class LoginPage extends JPanel {
             public void focusGained(java.awt.event.FocusEvent e) {
                 if (emailPlaceholderActive) {
                     emailField.setText("");
-                    emailField.setForeground(INPUT_TEXT);
+                    emailField.setForeground(inputText());
                     emailPlaceholderActive = false;
                 }
             }
@@ -728,7 +818,7 @@ public class LoginPage extends JPanel {
 
     private void setEmailPlaceholder() {
         emailField.setText(EMAIL_PLACEHOLDER);
-        emailField.setForeground(INPUT_PLACEHOLDER);
+        emailField.setForeground(inputPlaceholder());
         emailPlaceholderActive = true;
     }
 
@@ -740,7 +830,7 @@ public class LoginPage extends JPanel {
             public void focusGained(java.awt.event.FocusEvent e) {
                 if (passwordPlaceholderActive) {
                     passwordField.setText("");
-                    passwordField.setForeground(INPUT_TEXT);
+                    passwordField.setForeground(inputText());
                     passwordPlaceholderActive = false;
                     applyPasswordEchoState(passwordField, false);
                 }
@@ -774,7 +864,7 @@ public class LoginPage extends JPanel {
 
     private void setPasswordPlaceholder() {
         passwordField.setText(PASSWORD_PLACEHOLDER);
-        passwordField.setForeground(INPUT_PLACEHOLDER);
+        passwordField.setForeground(inputPlaceholder());
         passwordPlaceholderActive = true;
         passwordVisible = false;
         applyPasswordEchoState(passwordField, true);
@@ -789,7 +879,7 @@ public class LoginPage extends JPanel {
             public void focusGained(java.awt.event.FocusEvent e) {
                 if (confirmPasswordPlaceholderActive) {
                     confirmPasswordField.setText("");
-                    confirmPasswordField.setForeground(INPUT_TEXT);
+                    confirmPasswordField.setForeground(inputText());
                     confirmPasswordPlaceholderActive = false;
                     applyPasswordEchoState(confirmPasswordField, false);
                 }
@@ -823,7 +913,7 @@ public class LoginPage extends JPanel {
 
     private void setConfirmPasswordPlaceholder() {
         confirmPasswordField.setText(CONFIRM_PASSWORD_PLACEHOLDER);
-        confirmPasswordField.setForeground(INPUT_PLACEHOLDER);
+        confirmPasswordField.setForeground(inputPlaceholder());
         confirmPasswordPlaceholderActive = true;
         applyPasswordEchoState(confirmPasswordField, true);
         updatePasswordToggleText();
@@ -889,14 +979,14 @@ public class LoginPage extends JPanel {
         if (!resetCodeRequested) {
             UserAuthService.AuthResult requestResult = authService.requestPasswordReset(resetEmailField.getText());
             if (!requestResult.isSuccess()) {
-                showResetStatusMessage(requestResult.getMessage(), STATUS_ERROR);
+                showResetStatusMessage(requestResult.getMessage(), statusError());
                 return;
             }
 
             resetCodeRequested = true;
             resetEmailField.setText(requestResult.getUserEmail());
             updateResetStepVisibility();
-            showResetStatusMessage("Reset code sent. Enter it below and choose a new password.", STATUS_SUCCESS);
+            showResetStatusMessage("Reset code sent. Enter it below and choose a new password.", statusSuccess());
             applyResponsiveLayout();
             resetCodeField.requestFocusInWindow();
             return;
@@ -908,21 +998,21 @@ public class LoginPage extends JPanel {
         String confirmedPassword = new String(resetConfirmPasswordField.getPassword()).trim();
 
         if (resetCode.isEmpty()) {
-            showResetStatusMessage("Enter the reset code from your email.", STATUS_ERROR);
+            showResetStatusMessage("Enter the reset code from your email.", statusError());
             return;
         }
         if (newPassword.isEmpty()) {
-            showResetStatusMessage("Enter a new password.", STATUS_ERROR);
+            showResetStatusMessage("Enter a new password.", statusError());
             return;
         }
         if (!newPassword.equals(confirmedPassword)) {
-            showResetStatusMessage("The new password and confirmation do not match.", STATUS_ERROR);
+            showResetStatusMessage("The new password and confirmation do not match.", statusError());
             return;
         }
 
         UserAuthService.AuthResult resetResult = authService.resetPassword(email, resetCode, newPassword);
         if (!resetResult.isSuccess()) {
-            showResetStatusMessage(resetResult.getMessage(), STATUS_ERROR);
+            showResetStatusMessage(resetResult.getMessage(), statusError());
             return;
         }
 
@@ -939,7 +1029,7 @@ public class LoginPage extends JPanel {
         }
 
         emailField.setText(normalizedValue);
-        emailField.setForeground(INPUT_TEXT);
+        emailField.setForeground(inputText());
         emailPlaceholderActive = false;
     }
 

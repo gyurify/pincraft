@@ -44,25 +44,45 @@ import com.pinbuttonmaker.AppState;
 import com.pinbuttonmaker.data.ProjectData;
 import com.pinbuttonmaker.db.ProjectStorageService;
 import com.pinbuttonmaker.db.UserAuthService;
+import com.pinbuttonmaker.ui.UIStyles;
 import com.pinbuttonmaker.ui.components.ButtonPreviewPanel;
 import com.pinbuttonmaker.ui.components.CustomButton;
 
 public class HomePage extends JPanel {
-    private static final Color PAGE_BG = new Color(245, 247, 251);
-    private static final Color HEADER_BG = Color.WHITE;
-    private static final Color HEADER_BORDER = new Color(226, 230, 238);
+    private static final Color PAGE_BG = UIStyles.SHELL_BG;
+    private static final Color HEADER_BG = UIStyles.TOP_BAR_BG;
+    private static final Color HEADER_BORDER = UIStyles.PANEL_BORDER;
 
-    private static final Color HERO_BG = new Color(236, 238, 248);
-    private static final Color HERO_BORDER = new Color(222, 226, 236);
+    private static final Color HERO_BG = UIStyles.PANEL_BG;
+    private static final Color HERO_BORDER = UIStyles.PANEL_BORDER;
 
-    private static final Color CARD_BG = Color.WHITE;
-    private static final Color CARD_BORDER = new Color(223, 228, 237);
-    private static final Color PRIMARY_BLUE = new Color(46, 103, 231);
-    private static final Color OPEN_BUTTON_BG = new Color(38, 96, 225);
-    private static final Color OPEN_BUTTON_BORDER = new Color(30, 78, 188);
-    private static final Color REMOVE_BUTTON_BG = new Color(246, 232, 232);
-    private static final Color REMOVE_BUTTON_TEXT = new Color(170, 53, 53);
-    private static final Color REMOVE_BUTTON_BORDER = new Color(232, 205, 205);
+    private static final Color CARD_BG = UIStyles.PANEL_BG;
+    private static final Color CARD_BORDER = UIStyles.PANEL_BORDER;
+    private static final Color TITLE_TEXT = UIStyles.TEXT_PRIMARY;
+    private static final Color MUTED_TEXT = UIStyles.TEXT_MUTED;
+    private static final Color PRIMARY_BLUE = UIStyles.ACTION_BLUE;
+    private static final Color OPEN_BUTTON_BG = UIStyles.ACTION_BLUE;
+    private static final Color OPEN_BUTTON_BORDER = UIStyles.ACTION_BLUE_HOVER;
+    private static final Color REMOVE_BUTTON_BG = new Color(120, 55, 55);
+    private static final Color REMOVE_BUTTON_TEXT = new Color(255, 235, 235);
+    private static final Color REMOVE_BUTTON_BORDER = new Color(158, 82, 82);
+    private static final Color PREVIEW_SURFACE_BG = UIStyles.CANVAS_BG;
+    private static final Color PREVIEW_SURFACE_BORDER = UIStyles.CANVAS_BORDER;
+
+    private static final Color LIGHT_PAGE_BG = new Color(245, 247, 251);
+    private static final Color LIGHT_HEADER_BG = Color.WHITE;
+    private static final Color LIGHT_HEADER_BORDER = new Color(226, 230, 238);
+    private static final Color LIGHT_HERO_BG = new Color(236, 238, 248);
+    private static final Color LIGHT_HERO_BORDER = new Color(222, 226, 236);
+    private static final Color LIGHT_CARD_BG = Color.WHITE;
+    private static final Color LIGHT_CARD_BORDER = new Color(223, 228, 237);
+    private static final Color LIGHT_TITLE_TEXT = new Color(24, 31, 46);
+    private static final Color LIGHT_MUTED_TEXT = new Color(98, 107, 126);
+    private static final Color LIGHT_REMOVE_BUTTON_BG = new Color(246, 232, 232);
+    private static final Color LIGHT_REMOVE_BUTTON_TEXT = new Color(170, 53, 53);
+    private static final Color LIGHT_REMOVE_BUTTON_BORDER = new Color(232, 205, 205);
+    private static final Color LIGHT_PREVIEW_SURFACE_BG = new Color(247, 249, 253);
+    private static final Color LIGHT_PREVIEW_SURFACE_BORDER = new Color(229, 233, 241);
     private static final int RECENT_PREVIEW_RENDER_SIZE = 520;
 
     private final AppRouter router;
@@ -86,7 +106,7 @@ public class HomePage extends JPanel {
         this.profileButton = createProfileButton();
 
         setLayout(new BorderLayout());
-        setBackground(PAGE_BG);
+        setBackground(pageBg());
 
         add(createHeaderPanel(), BorderLayout.NORTH);
 
@@ -119,10 +139,66 @@ public class HomePage extends JPanel {
         });
     }
 
+    private Color pageBg() {
+        return appState.isDarkMode() ? PAGE_BG : LIGHT_PAGE_BG;
+    }
+
+    private Color headerBg() {
+        return appState.isDarkMode() ? HEADER_BG : LIGHT_HEADER_BG;
+    }
+
+    private Color headerBorder() {
+        return appState.isDarkMode() ? HEADER_BORDER : LIGHT_HEADER_BORDER;
+    }
+
+    private Color heroBg() {
+        return appState.isDarkMode() ? HERO_BG : LIGHT_HERO_BG;
+    }
+
+    private Color heroBorder() {
+        return appState.isDarkMode() ? HERO_BORDER : LIGHT_HERO_BORDER;
+    }
+
+    private Color cardBg() {
+        return appState.isDarkMode() ? CARD_BG : LIGHT_CARD_BG;
+    }
+
+    private Color cardBorder() {
+        return appState.isDarkMode() ? CARD_BORDER : LIGHT_CARD_BORDER;
+    }
+
+    private Color titleText() {
+        return appState.isDarkMode() ? TITLE_TEXT : LIGHT_TITLE_TEXT;
+    }
+
+    private Color mutedText() {
+        return appState.isDarkMode() ? MUTED_TEXT : LIGHT_MUTED_TEXT;
+    }
+
+    private Color removeButtonBg() {
+        return appState.isDarkMode() ? REMOVE_BUTTON_BG : LIGHT_REMOVE_BUTTON_BG;
+    }
+
+    private Color removeButtonText() {
+        return appState.isDarkMode() ? REMOVE_BUTTON_TEXT : LIGHT_REMOVE_BUTTON_TEXT;
+    }
+
+    private Color removeButtonBorder() {
+        return appState.isDarkMode() ? REMOVE_BUTTON_BORDER : LIGHT_REMOVE_BUTTON_BORDER;
+    }
+
+    private Color previewSurfaceBg() {
+        return appState.isDarkMode() ? PREVIEW_SURFACE_BG : LIGHT_PREVIEW_SURFACE_BG;
+    }
+
+    private Color previewSurfaceBorder() {
+        return appState.isDarkMode() ? PREVIEW_SURFACE_BORDER : LIGHT_PREVIEW_SURFACE_BORDER;
+    }
+
     private JPanel createHeaderPanel() {
         JPanel header = new JPanel(new BorderLayout());
-        header.setBackground(HEADER_BG);
-        header.setBorder(new MatteBorder(0, 0, 1, 0, HEADER_BORDER));
+        header.setBackground(headerBg());
+        header.setBorder(new MatteBorder(0, 0, 1, 0, headerBorder()));
         header.setPreferredSize(new Dimension(0, 60));
 
         JPanel leftGroup = new JPanel(new FlowLayout(FlowLayout.LEFT, 10, 10));
@@ -131,7 +207,7 @@ public class HomePage extends JPanel {
 
         JLabel titleLabel = new JLabel("PinCraft");
         titleLabel.setFont(new Font("SansSerif", Font.BOLD, 23));
-        titleLabel.setForeground(new Color(23, 29, 41));
+        titleLabel.setForeground(titleText());
 
         leftGroup.add(new LogoBadge());
         leftGroup.add(titleLabel);
@@ -149,11 +225,11 @@ public class HomePage extends JPanel {
     private JButton createProfileButton() {
         JButton button = new JButton("U");
         button.setFont(new Font("SansSerif", Font.BOLD, 13));
-        button.setForeground(new Color(33, 43, 60));
-        button.setBackground(new Color(238, 242, 249));
+        button.setForeground(titleText());
+        button.setBackground(appState.isDarkMode() ? UIStyles.ACTION_GREY : new Color(238, 242, 249));
         button.setFocusPainted(false);
         button.setBorder(BorderFactory.createCompoundBorder(
-            BorderFactory.createLineBorder(new Color(206, 214, 228)),
+            BorderFactory.createLineBorder(appState.isDarkMode() ? UIStyles.PANEL_BORDER : new Color(206, 214, 228)),
             BorderFactory.createEmptyBorder(6, 10, 6, 10)
         ));
         button.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
@@ -168,6 +244,8 @@ public class HomePage extends JPanel {
         }
 
         JPopupMenu menu = new JPopupMenu();
+        menu.setBackground(appState.isDarkMode() ? UIStyles.PANEL_BG : Color.WHITE);
+        menu.setBorder(BorderFactory.createLineBorder(appState.isDarkMode() ? UIStyles.PANEL_BORDER : new Color(206, 214, 228)));
 
         JMenuItem accountItem = createProfileMenuItem(appState.getCurrentUser(), false);
         JMenuItem changePasswordItem = createProfileMenuItem("Change Password", true);
@@ -187,6 +265,9 @@ public class HomePage extends JPanel {
         JMenuItem item = new JMenuItem(text);
         item.setEnabled(enabled);
         item.setFont(new Font("SansSerif", enabled ? Font.BOLD : Font.PLAIN, 13));
+        item.setOpaque(true);
+        item.setBackground(appState.isDarkMode() ? UIStyles.PANEL_BG : Color.WHITE);
+        item.setForeground(enabled ? titleText() : mutedText());
         return item;
     }
 
@@ -317,7 +398,7 @@ public class HomePage extends JPanel {
 
     private JScrollPane createBodyPanel() {
         JPanel content = new JPanel();
-        content.setBackground(PAGE_BG);
+        content.setBackground(pageBg());
         content.setLayout(new BoxLayout(content, BoxLayout.Y_AXIS));
         content.setBorder(new EmptyBorder(14, 18, 18, 18));
 
@@ -327,21 +408,21 @@ public class HomePage extends JPanel {
 
         JScrollPane scrollPane = new JScrollPane(content);
         scrollPane.setBorder(BorderFactory.createEmptyBorder());
-        scrollPane.getViewport().setBackground(PAGE_BG);
+        scrollPane.getViewport().setBackground(pageBg());
         scrollPane.getVerticalScrollBar().setUnitIncrement(16);
         return scrollPane;
     }
 
     private RoundedPanel createHeroSection() {
-        RoundedPanel panel = new RoundedPanel(18, HERO_BG, HERO_BORDER);
+        RoundedPanel panel = new RoundedPanel(18, heroBg(), heroBorder());
         panel.setLayout(new BoxLayout(panel, BoxLayout.Y_AXIS));
         panel.setBorder(new EmptyBorder(16, 18, 16, 18));
         panel.setAlignmentX(Component.LEFT_ALIGNMENT);
 
-        heroTitleLabel.setForeground(new Color(24, 31, 46));
+        heroTitleLabel.setForeground(titleText());
         heroTitleLabel.setAlignmentX(Component.LEFT_ALIGNMENT);
 
-        heroSubtitleLabel.setForeground(new Color(92, 101, 121));
+        heroSubtitleLabel.setForeground(mutedText());
         heroSubtitleLabel.setAlignmentX(Component.LEFT_ALIGNMENT);
 
         startButton.setAlignmentX(Component.LEFT_ALIGNMENT);
@@ -358,8 +439,11 @@ public class HomePage extends JPanel {
     private CustomButton createStartProjectButton() {
         CustomButton button = new CustomButton("Start New Project");
         button.setBackground(PRIMARY_BLUE);
-        button.setForeground(Color.WHITE);
-        button.setBorder(BorderFactory.createEmptyBorder(8, 16, 8, 16));
+        button.setForeground(UIStyles.TEXT_PRIMARY);
+        button.setBorder(BorderFactory.createCompoundBorder(
+            BorderFactory.createLineBorder(UIStyles.ACTION_BLUE_HOVER),
+            BorderFactory.createEmptyBorder(8, 16, 8, 16)
+        ));
         button.setFocusPainted(false);
         button.addActionListener(event -> startNewProject());
         return button;
@@ -371,8 +455,8 @@ public class HomePage extends JPanel {
         section.setLayout(new BoxLayout(section, BoxLayout.Y_AXIS));
         section.setAlignmentX(Component.LEFT_ALIGNMENT);
 
-        recentTitleLabel.setForeground(new Color(24, 31, 46));
-        recentSubtitleLabel.setForeground(new Color(98, 107, 126));
+        recentTitleLabel.setForeground(titleText());
+        recentSubtitleLabel.setForeground(mutedText());
 
         JPanel heading = new JPanel();
         heading.setOpaque(false);
@@ -386,9 +470,14 @@ public class HomePage extends JPanel {
         recentGridPanel.setOpaque(false);
         recentGridPanel.setAlignmentX(Component.LEFT_ALIGNMENT);
 
+        JPanel gridHolder = new JPanel(new BorderLayout());
+        gridHolder.setOpaque(false);
+        gridHolder.setAlignmentX(Component.LEFT_ALIGNMENT);
+        gridHolder.add(recentGridPanel, BorderLayout.NORTH);
+
         section.add(heading);
         section.add(Box.createVerticalStrut(12));
-        section.add(recentGridPanel);
+        section.add(gridHolder);
         return section;
     }
 
@@ -482,14 +571,14 @@ public class HomePage extends JPanel {
     }
 
     private JPanel createEmptyStateCard() {
-        RoundedPanel panel = new RoundedPanel(14, new Color(250, 251, 253), new Color(214, 220, 231));
+        RoundedPanel panel = new RoundedPanel(14, cardBg(), cardBorder());
         panel.setLayout(new GridBagLayout());
         panel.setBorder(new EmptyBorder(14, 14, 14, 14));
         panel.setPreferredSize(new Dimension(220, 130));
 
         JLabel label = new JLabel("No recent designs yet");
         label.setFont(new Font("SansSerif", Font.PLAIN, 14));
-        label.setForeground(new Color(108, 117, 136));
+        label.setForeground(mutedText());
         panel.add(label);
 
         return panel;
@@ -497,11 +586,20 @@ public class HomePage extends JPanel {
 
     private JPanel createProjectCard(ProjectData project) {
         int gridColumns = calculateGridColumns();
+        boolean singleColumn = gridColumns == 1;
+        boolean compactCard = gridColumns >= 3;
+        int cardHeight = singleColumn ? 384 : (compactCard ? 314 : 336);
+        int titleFontSize = singleColumn ? 21 : (compactCard ? 17 : 19);
+        int detailsFontSize = singleColumn ? 16 : (compactCard ? 13 : 15);
+        int actionGap = singleColumn ? 12 : 10;
+        int actionTopInset = singleColumn ? 8 : 6;
+        int buttonFontSize = singleColumn ? 15 : 14;
+        int buttonHeight = singleColumn ? 46 : 42;
 
-        RoundedPanel card = new RoundedPanel(14, CARD_BG, CARD_BORDER);
+        RoundedPanel card = new RoundedPanel(14, cardBg(), cardBorder());
         card.setLayout(new GridBagLayout());
-        card.setBorder(new EmptyBorder(14, 14, 14, 14));
-        card.setPreferredSize(new Dimension(220, gridColumns == 1 ? 356 : 312));
+        card.setBorder(new EmptyBorder(singleColumn ? 16 : 14, 16, singleColumn ? 16 : 14, 16));
+        card.setPreferredSize(new Dimension(220, cardHeight));
 
         GridBagConstraints constraints = new GridBagConstraints();
         constraints.gridx = 0;
@@ -511,22 +609,24 @@ public class HomePage extends JPanel {
         JPanel previewBox = createProjectPreviewBox(project, gridColumns);
 
         JLabel title = new JLabel(project.getProjectName());
-        title.setFont(new Font("SansSerif", Font.BOLD, 16));
-        title.setForeground(new Color(26, 33, 48));
+        title.setFont(new Font("SansSerif", Font.BOLD, titleFontSize));
+        title.setForeground(titleText());
 
         JLabel details = new JLabel("Layers: " + project.getLayers().size());
-        details.setFont(new Font("SansSerif", Font.PLAIN, 13));
-        details.setForeground(new Color(96, 106, 126));
+        details.setFont(new Font("SansSerif", Font.PLAIN, detailsFontSize));
+        details.setForeground(mutedText());
 
-        JPanel actions = new JPanel(new GridLayout(1, 2, 10, 0));
+        JPanel actions = new JPanel(new GridLayout(1, 2, actionGap, 0));
         actions.setOpaque(false);
-        actions.setBorder(new EmptyBorder(4, 0, 0, 0));
+        actions.setBorder(new EmptyBorder(actionTopInset, 0, 0, 0));
 
         JButton openButton = createProjectActionButton(
             "Open",
             OPEN_BUTTON_BG,
             Color.WHITE,
-            OPEN_BUTTON_BORDER
+            OPEN_BUTTON_BORDER,
+            buttonFontSize,
+            buttonHeight
         );
         openButton.addActionListener(event -> {
             ProjectStorageService.StorageResult<ProjectData> result = appState.loadProjectAsCurrent(project.getProjectId());
@@ -544,9 +644,11 @@ public class HomePage extends JPanel {
 
         JButton removeButton = createProjectActionButton(
             "Remove",
-            REMOVE_BUTTON_BG,
-            REMOVE_BUTTON_TEXT,
-            REMOVE_BUTTON_BORDER
+            removeButtonBg(),
+            removeButtonText(),
+            removeButtonBorder(),
+            buttonFontSize,
+            buttonHeight
         );
         removeButton.addActionListener(event -> handleRemoveProject(project));
 
@@ -573,12 +675,14 @@ public class HomePage extends JPanel {
     }
 
     private JPanel createProjectPreviewBox(ProjectData project, int gridColumns) {
-        int previewHeight = gridColumns == 1 ? 236 : 188;
-        int previewIconSize = gridColumns == 1 ? 202 : 162;
+        boolean singleColumn = gridColumns == 1;
+        boolean compactCard = gridColumns >= 3;
+        int previewHeight = singleColumn ? 244 : (compactCard ? 176 : 206);
+        int previewIconSize = singleColumn ? 210 : (compactCard ? 148 : 176);
 
-        RoundedPanel previewBox = new RoundedPanel(12, new Color(247, 249, 253), new Color(229, 233, 241));
+        RoundedPanel previewBox = new RoundedPanel(12, previewSurfaceBg(), previewSurfaceBorder());
         previewBox.setLayout(new GridBagLayout());
-        previewBox.setBorder(new EmptyBorder(14, 14, 14, 14));
+        previewBox.setBorder(new EmptyBorder(singleColumn ? 16 : 14, 14, singleColumn ? 16 : 14, 14));
         previewBox.setPreferredSize(new Dimension(220, previewHeight));
 
         JLabel previewLabel = new JLabel();
@@ -593,19 +697,20 @@ public class HomePage extends JPanel {
         return previewBox;
     }
 
-    private JButton createProjectActionButton(String text, Color background, Color foreground, Color borderColor) {
+    private JButton createProjectActionButton(String text, Color background, Color foreground, Color borderColor, int fontSize, int buttonHeight) {
         JButton button = new JButton(text);
-        button.setFont(new Font("SansSerif", Font.BOLD, 12));
+        button.setFont(new Font("SansSerif", Font.BOLD, fontSize));
         button.setForeground(foreground);
         button.setBackground(background);
         button.setBorder(BorderFactory.createCompoundBorder(
             BorderFactory.createLineBorder(borderColor, 1, true),
-            BorderFactory.createEmptyBorder(9, 12, 9, 12)
+            BorderFactory.createEmptyBorder(11, 12, 11, 12)
         ));
         button.setOpaque(true);
         button.setContentAreaFilled(true);
         button.setFocusPainted(false);
         button.setCursor(new java.awt.Cursor(java.awt.Cursor.HAND_CURSOR));
+        button.setPreferredSize(new Dimension(0, buttonHeight));
         return button;
     }
 
@@ -642,7 +747,7 @@ public class HomePage extends JPanel {
             Graphics2D g2 = (Graphics2D) graphics.create();
             g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
 
-            g2.setColor(new Color(44, 104, 233));
+            g2.setColor(UIStyles.ACTION_BLUE);
             g2.fillOval(0, 0, getWidth() - 1, getHeight() - 1);
 
             g2.setColor(Color.WHITE);

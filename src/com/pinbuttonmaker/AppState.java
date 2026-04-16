@@ -13,9 +13,15 @@ import com.pinbuttonmaker.mail.SmtpSettings;
 import com.pinbuttonmaker.util.Utils;
 
 public class AppState {
+    public enum ThemeMode {
+        DARK,
+        LIGHT
+    }
+
     private Long currentUserId;
     private String currentUser;
     private ProjectData currentProject;
+    private ThemeMode themeMode;
     private final List<ProjectData> savedProjects;
     private final DatabaseManager databaseManager;
     private final UserAuthService userAuthService;
@@ -25,6 +31,7 @@ public class AppState {
         this.currentUserId = null;
         this.currentUser = "Guest";
         this.currentProject = new ProjectData("Untitled Project");
+        this.themeMode = ThemeMode.LIGHT;
         this.savedProjects = new ArrayList<>();
         this.databaseManager = new DatabaseManager();
         this.userAuthService = new UserAuthService(
@@ -44,6 +51,18 @@ public class AppState {
 
     public boolean isAuthenticated() {
         return currentUserId != null;
+    }
+
+    public ThemeMode getThemeMode() {
+        return themeMode;
+    }
+
+    public boolean isDarkMode() {
+        return themeMode == ThemeMode.DARK;
+    }
+
+    public void setThemeMode(ThemeMode themeMode) {
+        this.themeMode = themeMode == null ? ThemeMode.LIGHT : themeMode;
     }
 
     public void setAuthenticatedUser(Long userId, String userEmail) {

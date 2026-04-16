@@ -25,12 +25,14 @@ public class AppRouter {
     private final JPanel mainPanel;
     private final AppState appState;
     private final Map<String, FadablePanel> routePanels;
+    private String currentRoute;
 
     public AppRouter(AppState appState) {
         this.appState = appState;
         this.cardLayout = new CardLayout();
         this.mainPanel = new JPanel(cardLayout);
         this.routePanels = new LinkedHashMap<>();
+        this.currentRoute = ROUTE_LOGIN;
 
         registerPages();
     }
@@ -74,11 +76,22 @@ public class AppRouter {
     }
 
     public void navigate(String route) {
+        currentRoute = route;
         cardLayout.show(mainPanel, route);
         FadablePanel activePanel = routePanels.get(route);
         if (activePanel != null) {
             FadeAnimator.fadeIn(activePanel);
         }
+    }
+
+    public void reloadRoutes() {
+        String routeToShow = currentRoute == null ? ROUTE_LOGIN : currentRoute;
+        routePanels.clear();
+        mainPanel.removeAll();
+        registerPages();
+        mainPanel.revalidate();
+        mainPanel.repaint();
+        navigate(routeToShow);
     }
 
     public void showLogin() {

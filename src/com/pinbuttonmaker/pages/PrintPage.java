@@ -53,12 +53,19 @@ public class PrintPage extends JPanel {
     private static final int PRINTABLE_PREVIEW_RESOLUTION = 720;
     private static final double PRINT_SIZE_EXTRA_INCHES = 1.0 / 2.54;
 
-    private static final Color PAGE_BG = new Color(243, 246, 251);
-    private static final Color PANEL_BG = new Color(250, 252, 255);
-    private static final Color BORDER = new Color(212, 220, 233);
-    private static final Color TEXT_PRIMARY = new Color(35, 46, 66);
-    private static final Color TEXT_SECONDARY = new Color(100, 112, 132);
-    private static final Color PREVIEW_BOX_BG = new Color(245, 248, 252);
+    private static final Color PAGE_BG = UIStyles.SHELL_BG;
+    private static final Color PANEL_BG = UIStyles.PANEL_BG;
+    private static final Color BORDER = UIStyles.PANEL_BORDER;
+    private static final Color TEXT_PRIMARY = UIStyles.TEXT_PRIMARY;
+    private static final Color TEXT_SECONDARY = UIStyles.TEXT_MUTED;
+    private static final Color PREVIEW_BOX_BG = UIStyles.PANEL_ALT_BG;
+
+    private static final Color LIGHT_PAGE_BG = new Color(243, 246, 251);
+    private static final Color LIGHT_PANEL_BG = new Color(250, 252, 255);
+    private static final Color LIGHT_BORDER = new Color(212, 220, 233);
+    private static final Color LIGHT_TEXT_PRIMARY = new Color(35, 46, 66);
+    private static final Color LIGHT_TEXT_SECONDARY = new Color(100, 112, 132);
+    private static final Color LIGHT_PREVIEW_BOX_BG = new Color(245, 248, 252);
 
     private static final PaperSizeOption[] PAPER_SIZE_OPTIONS = {
         new PaperSizeOption("A4", "210 x 297 mm", 210.0 / 25.4, 297.0 / 25.4),
@@ -103,9 +110,33 @@ public class PrintPage extends JPanel {
         refreshGallery();
     }
 
+    private Color pageBg() {
+        return appState.isDarkMode() ? PAGE_BG : LIGHT_PAGE_BG;
+    }
+
+    private Color panelBg() {
+        return appState.isDarkMode() ? PANEL_BG : LIGHT_PANEL_BG;
+    }
+
+    private Color borderColor() {
+        return appState.isDarkMode() ? BORDER : LIGHT_BORDER;
+    }
+
+    private Color primaryText() {
+        return appState.isDarkMode() ? TEXT_PRIMARY : LIGHT_TEXT_PRIMARY;
+    }
+
+    private Color secondaryText() {
+        return appState.isDarkMode() ? TEXT_SECONDARY : LIGHT_TEXT_SECONDARY;
+    }
+
+    private Color previewBoxBg() {
+        return appState.isDarkMode() ? PREVIEW_BOX_BG : LIGHT_PREVIEW_BOX_BG;
+    }
+
     private void buildLayout() {
         setLayout(new BorderLayout(16, 0));
-        setBackground(PAGE_BG);
+        setBackground(pageBg());
         UIStyles.applyPagePadding(this);
 
         JSplitPane splitPane = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT, buildLeftPanel(), buildRightPanel());
@@ -120,16 +151,16 @@ public class PrintPage extends JPanel {
 
     private JPanel buildLeftPanel() {
         JPanel leftPanel = new JPanel(new BorderLayout(0, 12));
-        leftPanel.setBackground(PAGE_BG);
+        leftPanel.setBackground(pageBg());
 
         previewTitleLabel = new JLabel("Paper Preview");
         previewTitleLabel.setFont(new Font("SansSerif", Font.BOLD, 22));
-        previewTitleLabel.setForeground(TEXT_PRIMARY);
+        previewTitleLabel.setForeground(primaryText());
 
         JPanel previewCard = new JPanel(new BorderLayout());
-        previewCard.setBackground(PANEL_BG);
+        previewCard.setBackground(panelBg());
         previewCard.setBorder(BorderFactory.createCompoundBorder(
-            BorderFactory.createLineBorder(BORDER),
+            BorderFactory.createLineBorder(borderColor()),
             BorderFactory.createEmptyBorder(16, 16, 16, 16)
         ));
 
@@ -143,31 +174,33 @@ public class PrintPage extends JPanel {
 
     private JPanel buildRightPanel() {
         JPanel rightPanel = new JPanel(new BorderLayout(0, 14));
-        rightPanel.setBackground(PAGE_BG);
+        rightPanel.setBackground(pageBg());
         rightPanel.setPreferredSize(new Dimension(360, 0));
         rightPanel.setMinimumSize(new Dimension(320, 0));
 
         JPanel controlsCard = new JPanel();
         controlsCard.setLayout(new BoxLayout(controlsCard, BoxLayout.Y_AXIS));
-        controlsCard.setBackground(PANEL_BG);
+        controlsCard.setBackground(panelBg());
         controlsCard.setBorder(BorderFactory.createCompoundBorder(
-            BorderFactory.createLineBorder(BORDER),
+            BorderFactory.createLineBorder(borderColor()),
             BorderFactory.createEmptyBorder(14, 14, 14, 14)
         ));
 
         JLabel settingsTitle = new JLabel("Print Settings");
         settingsTitle.setFont(new Font("SansSerif", Font.BOLD, 18));
-        settingsTitle.setForeground(TEXT_PRIMARY);
+        settingsTitle.setForeground(primaryText());
         settingsTitle.setAlignmentX(Component.CENTER_ALIGNMENT);
         settingsTitle.setHorizontalAlignment(SwingConstants.CENTER);
 
         paperSizeCombo = new JComboBox<>(PAPER_SIZE_OPTIONS);
+        styleComboBox(paperSizeCombo);
         paperSizeCombo.addActionListener(event -> {
             refreshPreviewState();
             refreshGallery();
         });
 
         buttonSizeCombo = new JComboBox<>(BUTTON_SIZE_OPTIONS);
+        styleComboBox(buttonSizeCombo);
         buttonSizeCombo.addActionListener(event -> {
             applySelectedButtonSizeToProject();
             refreshPreviewState();
@@ -175,27 +208,36 @@ public class PrintPage extends JPanel {
         });
 
         showCutLinesCheck = new JCheckBox("Show Cut Lines", true);
-        showCutLinesCheck.setBackground(PANEL_BG);
-        showCutLinesCheck.setForeground(TEXT_PRIMARY);
+        showCutLinesCheck.setBackground(panelBg());
+        showCutLinesCheck.setForeground(primaryText());
         showCutLinesCheck.setFocusPainted(false);
+        showCutLinesCheck.setOpaque(true);
         showCutLinesCheck.setAlignmentX(Component.CENTER_ALIGNMENT);
         showCutLinesCheck.addActionListener(event -> refreshPreviewState());
 
         fitSummaryLabel = new JLabel();
         fitSummaryLabel.setFont(new Font("SansSerif", Font.PLAIN, 13));
-        fitSummaryLabel.setForeground(TEXT_SECONDARY);
+        fitSummaryLabel.setForeground(secondaryText());
         fitSummaryLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
 
         CustomButton backButton = new CustomButton("Back");
         backButton.setFont(new Font("SansSerif", Font.BOLD, 15));
         backButton.setPreferredSize(new Dimension(160, 48));
         backButton.setMaximumSize(new Dimension(160, 48));
+        backButton.setBackground(UIStyles.ACTION_GREY);
+        backButton.setForeground(UIStyles.TEXT_PRIMARY);
         backButton.addActionListener(event -> router.showEditor());
 
         CustomButton downloadPdfButton = new CustomButton("Download PDF");
         downloadPdfButton.setFont(new Font("SansSerif", Font.BOLD, 16));
         downloadPdfButton.setPreferredSize(new Dimension(160, 48));
         downloadPdfButton.setMaximumSize(new Dimension(160, 48));
+        downloadPdfButton.setBackground(UIStyles.ACTION_BLUE);
+        downloadPdfButton.setForeground(UIStyles.TEXT_PRIMARY);
+        downloadPdfButton.setBorder(BorderFactory.createCompoundBorder(
+            BorderFactory.createLineBorder(UIStyles.ACTION_BLUE_HOVER),
+            BorderFactory.createEmptyBorder(8, 14, 8, 14)
+        ));
         downloadPdfButton.addActionListener(event -> exportCurrentLayoutAsPdf());
 
         JPanel actionRow = new JPanel(new FlowLayout(FlowLayout.CENTER, 12, 0));
@@ -217,24 +259,24 @@ public class PrintPage extends JPanel {
         controlsCard.add(actionRow);
 
         JPanel galleryCard = new JPanel(new BorderLayout(0, 10));
-        galleryCard.setBackground(PANEL_BG);
+        galleryCard.setBackground(panelBg());
         galleryCard.setBorder(BorderFactory.createCompoundBorder(
-            BorderFactory.createLineBorder(BORDER),
+            BorderFactory.createLineBorder(borderColor()),
             BorderFactory.createEmptyBorder(12, 12, 12, 12)
         ));
 
         JLabel galleryTitle = new JLabel("Printable Items");
         galleryTitle.setFont(new Font("SansSerif", Font.BOLD, 16));
-        galleryTitle.setForeground(TEXT_PRIMARY);
+        galleryTitle.setForeground(primaryText());
 
         galleryListPanel = new JPanel();
         galleryListPanel.setLayout(new BoxLayout(galleryListPanel, BoxLayout.Y_AXIS));
-        galleryListPanel.setBackground(PANEL_BG);
+        galleryListPanel.setBackground(panelBg());
 
         JScrollPane galleryScroll = new JScrollPane(galleryListPanel);
-        galleryScroll.setBorder(BorderFactory.createLineBorder(BORDER));
+        galleryScroll.setBorder(BorderFactory.createLineBorder(borderColor()));
         galleryScroll.getVerticalScrollBar().setUnitIncrement(14);
-        galleryScroll.getViewport().setBackground(PANEL_BG);
+        galleryScroll.getViewport().setBackground(panelBg());
 
         galleryCard.add(galleryTitle, BorderLayout.NORTH);
         galleryCard.add(galleryScroll, BorderLayout.CENTER);
@@ -250,13 +292,19 @@ public class PrintPage extends JPanel {
 
         JLabel label = new JLabel(labelText);
         label.setFont(new Font("SansSerif", Font.BOLD, 13));
-        label.setForeground(TEXT_SECONDARY);
+        label.setForeground(secondaryText());
 
         comboBox.setFont(new Font("SansSerif", Font.PLAIN, 13));
 
         fieldPanel.add(label, BorderLayout.NORTH);
         fieldPanel.add(comboBox, BorderLayout.CENTER);
         return fieldPanel;
+    }
+
+    private void styleComboBox(JComboBox<?> comboBox) {
+        comboBox.setBackground(appState.isDarkMode() ? UIStyles.PANEL_ALT_BG : Color.WHITE);
+        comboBox.setForeground(primaryText());
+        comboBox.setBorder(BorderFactory.createLineBorder(borderColor()));
     }
 
     private void syncButtonSizeFromCurrentProject() {
@@ -330,7 +378,7 @@ public class PrintPage extends JPanel {
         if (printableProjects.isEmpty()) {
             JLabel empty = new JLabel("No printable designs yet. Add visible text or photo layers in Editor and save.");
             empty.setFont(new Font("SansSerif", Font.PLAIN, 13));
-            empty.setForeground(TEXT_SECONDARY);
+            empty.setForeground(secondaryText());
             empty.setBorder(BorderFactory.createEmptyBorder(8, 4, 8, 4));
             galleryListPanel.add(empty);
         } else {
@@ -442,33 +490,33 @@ public class PrintPage extends JPanel {
 
     private JPanel createGalleryItem(PaperPreviewPanel.PrintableItem itemData, ProjectData project) {
         JPanel item = new JPanel(new BorderLayout(0, 0));
-        item.setBackground(Color.WHITE);
+        item.setBackground(panelBg());
         item.setPreferredSize(new Dimension(154, 154));
         item.setMinimumSize(new Dimension(154, 154));
         item.setMaximumSize(new Dimension(154, 154));
         item.setBorder(BorderFactory.createCompoundBorder(
-            BorderFactory.createLineBorder(BORDER),
+            BorderFactory.createLineBorder(borderColor()),
             BorderFactory.createEmptyBorder(0, 0, 0, 0)
         ));
 
         JPanel titleBar = new JPanel(new BorderLayout());
-        titleBar.setBackground(new Color(62, 66, 74));
+        titleBar.setBackground(UIStyles.TOP_BAR_BG);
         titleBar.setBorder(BorderFactory.createEmptyBorder(4, 8, 4, 8));
 
         JLabel nameLabel = new JLabel(itemData.getDisplayName());
         nameLabel.setFont(new Font("Monospaced", Font.PLAIN, 12));
-        nameLabel.setForeground(new Color(243, 246, 252));
+        nameLabel.setForeground(UIStyles.TEXT_PRIMARY);
         titleBar.add(nameLabel, BorderLayout.CENTER);
 
         JPanel previewBox = new JPanel(new BorderLayout(0, 4));
         previewBox.setOpaque(true);
-        previewBox.setBackground(PREVIEW_BOX_BG);
+        previewBox.setBackground(previewBoxBg());
         previewBox.setBorder(BorderFactory.createEmptyBorder(10, 10, 8, 10));
         previewBox.add(createGalleryContentPreview(itemData), BorderLayout.CENTER);
 
         JLabel detailsLabel = new JLabel(resolveProjectButtonSizeText(project.getButtonDiameterMm()), SwingConstants.CENTER);
         detailsLabel.setFont(new Font("SansSerif", Font.PLAIN, 12));
-        detailsLabel.setForeground(TEXT_SECONDARY);
+        detailsLabel.setForeground(secondaryText());
         previewBox.add(detailsLabel, BorderLayout.SOUTH);
 
         item.add(titleBar, BorderLayout.NORTH);
@@ -490,7 +538,7 @@ public class PrintPage extends JPanel {
             previewLabel.setIcon(new ImageIcon(createScaledPreviewImage(image, 72)));
         } else {
             previewLabel.setText(item.getDisplayName());
-            previewLabel.setForeground(TEXT_SECONDARY);
+            previewLabel.setForeground(secondaryText());
             previewLabel.setFont(new Font("SansSerif", Font.PLAIN, 12));
         }
 
