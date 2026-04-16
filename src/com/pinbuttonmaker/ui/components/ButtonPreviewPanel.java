@@ -571,9 +571,10 @@ public class ButtonPreviewPanel extends JPanel {
             BufferedImage image = layer.getPhotoImage();
             double coverScale = Math.max((double) buttonDiameter / image.getWidth(), (double) buttonDiameter / image.getHeight());
             double userScale = layer.getPhotoScalePercent() / 100.0;
+            double stretchScale = Math.max(0.1, layer.getStretchPercent() / 100.0);
             double scale = coverScale * userScale;
 
-            int drawWidth = (int) Math.round(image.getWidth() * scale);
+            int drawWidth = (int) Math.round(image.getWidth() * scale * stretchScale);
             int drawHeight = (int) Math.round(image.getHeight() * scale);
 
             int drawX = centerX - drawWidth / 2 + layer.getPhotoOffsetX();
@@ -837,11 +838,14 @@ public class ButtonPreviewPanel extends JPanel {
             return null;
         }
 
+        double stretchScale = Math.max(0.1, layer.getStretchPercent() / 100.0);
+
         if (!layer.hasPhotoImage()) {
             int fallbackSize = (int) Math.round(geometry.safeDiameter * 0.55);
-            int fallbackX = geometry.centerX - (fallbackSize / 2) + layer.getPhotoOffsetX();
+            int fallbackWidth = Math.max(1, (int) Math.round(fallbackSize * stretchScale));
+            int fallbackX = geometry.centerX - (fallbackWidth / 2) + layer.getPhotoOffsetX();
             int fallbackY = geometry.centerY - (fallbackSize / 2) + layer.getPhotoOffsetY();
-            return new PhotoDrawBounds(fallbackX, fallbackY, fallbackSize, fallbackSize);
+            return new PhotoDrawBounds(fallbackX, fallbackY, fallbackWidth, fallbackSize);
         }
 
         BufferedImage image = layer.getPhotoImage();
@@ -849,7 +853,7 @@ public class ButtonPreviewPanel extends JPanel {
         double userScale = Math.max(0.1, scalePercent / 100.0);
         double scale = coverScale * userScale;
 
-        int drawWidth = Math.max(1, (int) Math.round(image.getWidth() * scale));
+        int drawWidth = Math.max(1, (int) Math.round(image.getWidth() * scale * stretchScale));
         int drawHeight = Math.max(1, (int) Math.round(image.getHeight() * scale));
         int drawX = geometry.centerX - (drawWidth / 2) + layer.getPhotoOffsetX();
         int drawY = geometry.centerY - (drawHeight / 2) + layer.getPhotoOffsetY();
