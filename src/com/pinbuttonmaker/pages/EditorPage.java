@@ -81,12 +81,14 @@ public class EditorPage extends JPanel {
     };
 
     private static final Color APP_BG = new Color(30, 34, 40);
-    private static final Color TOP_BAR_BG = new Color(39, 44, 51);
-    private static final Color TOP_BAR_BORDER = new Color(58, 65, 75);
+    private static final Color TOP_BAR_BG = new Color(44, 49, 58);
+    private static final Color TOP_BAR_BORDER = new Color(90, 102, 120);
 
-    private static final Color BUTTON_BG = new Color(63, 71, 82);
-    private static final Color BUTTON_BORDER = new Color(93, 103, 118);
-    private static final Color BUTTON_TEXT = new Color(234, 238, 245);
+    private static final Color BUTTON_BG = new Color(65, 74, 87);
+    private static final Color BUTTON_HOVER_BG = new Color(77, 88, 112);
+    private static final Color BUTTON_BORDER = new Color(90, 102, 120);
+    private static final Color BUTTON_TEXT = new Color(243, 246, 251);
+    private static final Color BUTTON_ACCENT_BG = new Color(59, 130, 246);
 
     private static final Color WORKSPACE_BG = new Color(210, 215, 224);
     private static final Color WORKSPACE_BORDER = new Color(179, 186, 198);
@@ -227,7 +229,7 @@ public class EditorPage extends JPanel {
         homeButton.addActionListener(event -> router.showHome());
         strip.add(homeButton);
 
-        JButton printButton = createTopButton("Print ->");
+        JButton printButton = createTopButton("Print ->", BUTTON_ACCENT_BG);
         printButton.addActionListener(event -> router.showPrint());
         strip.add(printButton);
 
@@ -236,17 +238,32 @@ public class EditorPage extends JPanel {
     }
 
     private JButton createTopButton(String text) {
+        return createTopButton(text, BUTTON_BG);
+    }
+
+    private JButton createTopButton(String text, Color baseBackground) {
         JButton button = new JButton(text);
         button.setFocusPainted(false);
         button.setHorizontalAlignment(SwingConstants.CENTER);
         button.setFont(new Font("SansSerif", Font.BOLD, 13));
         button.setForeground(BUTTON_TEXT);
-        button.setBackground(BUTTON_BG);
+        button.setBackground(baseBackground);
         button.setBorder(BorderFactory.createCompoundBorder(
             BorderFactory.createLineBorder(BUTTON_BORDER),
             BorderFactory.createEmptyBorder(6, 10, 6, 10)
         ));
         button.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        button.addMouseListener(new MouseAdapter() {
+            @Override
+            public void mouseEntered(MouseEvent event) {
+                button.setBackground(baseBackground.equals(BUTTON_ACCENT_BG) ? BUTTON_ACCENT_BG.brighter() : BUTTON_HOVER_BG);
+            }
+
+            @Override
+            public void mouseExited(MouseEvent event) {
+                button.setBackground(baseBackground);
+            }
+        });
         return button;
     }
 

@@ -125,12 +125,15 @@ public class ButtonPreviewPanel extends JPanel {
                     return;
                 }
 
-                if (!layer.isTextLayer() && isPointOnPhotoResizeBorder(layer, event.getX(), event.getY(), geometry)) {
-                    draggingLayer = false;
-                    resizingPhoto = true;
-                    lastDragX = event.getX();
-                    lastDragY = event.getY();
-                    return;
+                if (!layer.isTextLayer()) {
+                    ResizeHandle photoHandle = getPhotoResizeHandleAtPoint(layer, event.getX(), event.getY(), geometry);
+                    if (photoHandle != ResizeHandle.NONE) {
+                        draggingLayer = false;
+                        resizingPhoto = true;
+                        lastDragX = event.getX();
+                        lastDragY = event.getY();
+                        return;
+                    }
                 }
 
                 draggingLayer = true;
@@ -649,20 +652,11 @@ public class ButtonPreviewPanel extends JPanel {
         int buttonX = geometry.centerX - geometry.buttonDiameter / 2;
         int buttonY = geometry.centerY - geometry.buttonDiameter / 2;
 
-        Shape oldClip = g2.getClip();
-        if (layer.isTextLayer()) {
-            g2.clip(new Ellipse2D.Double(buttonX, buttonY, geometry.buttonDiameter, geometry.buttonDiameter));
-        }
-
         g2.setColor(ACTIVE_GUIDE_BORDER);
         g2.setStroke(new BasicStroke(1.7f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND, 1f, new float[] {7f, 5f}, 0f));
         g2.drawRect(guideBounds.x, guideBounds.y, guideBounds.width, guideBounds.height);
 
-        if (!layer.isTextLayer()) {
-            drawPhotoResizeHandles(g2, guideBounds);
-        }
-
-        g2.setClip(oldClip);
+        drawResizeHandles(g2, guideBounds);
     }
 
     private Rectangle computeLayerGuideBounds(LayerData layer, PreviewGeometry geometry, int baseCurveRadius) {
@@ -748,40 +742,32 @@ public class ButtonPreviewPanel extends JPanel {
         layer.setPhotoScalePercent(nextScalePercent);
     }
 
-    private boolean isPointOnPhotoResizeBorder(LayerData layer, int x, int y, PreviewGeometry geometry) {
+    private ResizeHandle getPhotoResizeHandleAtPoint(LayerData layer, int x, int y, PreviewGeometry geometry) {
         Rectangle guideBounds = computePhotoGuideBounds(layer, geometry);
         if (guideBounds == null) {
-            return false;
+            return ResizeHandle.NONE;
         }
 
         Point2D localPoint = toLayerLocalPoint(layer, x, y, geometry);
         if (localPoint == null) {
-            return false;
+            return ResizeHandle.NONE;
         }
 
-        if (isPointInsideResizeHandle(guideBounds, localPoint)) {
-            return true;
-        }
-
-        Rectangle outerBounds = new Rectangle(guideBounds);
-        outerBounds.grow(RESIZE_HANDLE_HIT_PADDING, RESIZE_HANDLE_HIT_PADDING);
-
-        Rectangle innerBounds = new Rectangle(guideBounds);
-        int shrinkBy = Math.max(6, RESIZE_HANDLE_SIZE);
-        innerBounds.grow(-shrinkBy, -shrinkBy);
-
-        return outerBounds.contains(localPoint) && !innerBounds.contains(localPoint);
+        ResizeHandle handle = getResizeHandleAtPoint(guideBounds, localPoint, false);
+        return handle == ResizeHandle.NONE ? ResizeHandle.CORNER_BOTTOM_RIGHT : handle;
     }
 
-    private boolean isPointInsideResizeHandle(Rectangle guideBounds, Point2D localPoint) {
-        for (Rectangle handle : getResizeHandles(guideBounds)) {
-            Rectangle hitBounds = new Rectangle(handle);
+    private ResizeHandle getResizeHandleAtPoint(Rectangle guideBounds, Point2D localPoint, boolean includeSides) {
+        ResizeHandle[] handles = ResizeHandle.photoHandles();
+        for (ResizeHandle handle : handles) {
+            Rectangle bounds = getHandleBounds(guideBounds, handle);
+            Rectangle hitBounds = new Rectangle(bounds);
             hitBounds.grow(RESIZE_HANDLE_HIT_PADDING, RESIZE_HANDLE_HIT_PADDING);
             if (hitBounds.contains(localPoint)) {
-                return true;
+                return handle;
             }
         }
-        return false;
+        return ResizeHandle.NONE;
     }
 
     private Point2D toLayerLocalPoint(LayerData layer, int x, int y, PreviewGeometry geometry) {
@@ -826,28 +812,38 @@ public class ButtonPreviewPanel extends JPanel {
         return new PhotoDrawBounds(drawX, drawY, drawWidth, drawHeight);
     }
 
-    private void drawPhotoResizeHandles(Graphics2D g2, Rectangle guideBounds) {
+    private void drawResizeHandles(Graphics2D g2, Rectangle guideBounds) {
         Stroke oldStroke = g2.getStroke();
         g2.setStroke(new BasicStroke(1.2f));
 
-        for (Rectangle handle : getResizeHandles(guideBounds)) {
+        for (ResizeHandle handle : ResizeHandle.photoHandles()) {
+            Rectangle bounds = getHandleBounds(guideBounds, handle);
             g2.setColor(ACTIVE_GUIDE_FILL);
-            g2.fillRect(handle.x, handle.y, handle.width, handle.height);
+            g2.fillRect(bounds.x, bounds.y, bounds.width, bounds.height);
             g2.setColor(Color.WHITE);
-            g2.drawRect(handle.x, handle.y, handle.width, handle.height);
+            g2.drawRect(bounds.x, bounds.y, bounds.width, bounds.height);
         }
 
         g2.setStroke(oldStroke);
     }
 
-    private Rectangle[] getResizeHandles(Rectangle guideBounds) {
+    private Rectangle getHandleBounds(Rectangle guideBounds, ResizeHandle handle) {
         int halfHandle = RESIZE_HANDLE_SIZE / 2;
-        return new Rectangle[] {
-            new Rectangle(guideBounds.x - halfHandle, guideBounds.y - halfHandle, RESIZE_HANDLE_SIZE, RESIZE_HANDLE_SIZE),
-            new Rectangle(guideBounds.x + guideBounds.width - halfHandle, guideBounds.y - halfHandle, RESIZE_HANDLE_SIZE, RESIZE_HANDLE_SIZE),
-            new Rectangle(guideBounds.x - halfHandle, guideBounds.y + guideBounds.height - halfHandle, RESIZE_HANDLE_SIZE, RESIZE_HANDLE_SIZE),
-            new Rectangle(guideBounds.x + guideBounds.width - halfHandle, guideBounds.y + guideBounds.height - halfHandle, RESIZE_HANDLE_SIZE, RESIZE_HANDLE_SIZE)
-        };
+        int centerX = guideBounds.x + (guideBounds.width / 2);
+        int centerY = guideBounds.y + (guideBounds.height / 2);
+
+        switch (handle) {
+            case CORNER_TOP_LEFT:
+                return new Rectangle(guideBounds.x - halfHandle, guideBounds.y - halfHandle, RESIZE_HANDLE_SIZE, RESIZE_HANDLE_SIZE);
+            case CORNER_TOP_RIGHT:
+                return new Rectangle(guideBounds.x + guideBounds.width - halfHandle, guideBounds.y - halfHandle, RESIZE_HANDLE_SIZE, RESIZE_HANDLE_SIZE);
+            case CORNER_BOTTOM_LEFT:
+                return new Rectangle(guideBounds.x - halfHandle, guideBounds.y + guideBounds.height - halfHandle, RESIZE_HANDLE_SIZE, RESIZE_HANDLE_SIZE);
+            case CORNER_BOTTOM_RIGHT:
+                return new Rectangle(guideBounds.x + guideBounds.width - halfHandle, guideBounds.y + guideBounds.height - halfHandle, RESIZE_HANDLE_SIZE, RESIZE_HANDLE_SIZE);
+            default:
+                return new Rectangle(centerX - halfHandle, centerY - halfHandle, RESIZE_HANDLE_SIZE, RESIZE_HANDLE_SIZE);
+        }
     }
 
 
@@ -918,6 +914,23 @@ public class ButtonPreviewPanel extends JPanel {
             this.y = y;
             this.width = width;
             this.height = height;
+        }
+    }
+
+    private enum ResizeHandle {
+        NONE,
+        CORNER_TOP_LEFT,
+        CORNER_TOP_RIGHT,
+        CORNER_BOTTOM_LEFT,
+        CORNER_BOTTOM_RIGHT;
+
+        private static ResizeHandle[] photoHandles() {
+            return new ResizeHandle[] {
+                CORNER_TOP_LEFT,
+                CORNER_TOP_RIGHT,
+                CORNER_BOTTOM_LEFT,
+                CORNER_BOTTOM_RIGHT
+            };
         }
     }
 }
