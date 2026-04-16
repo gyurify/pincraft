@@ -336,7 +336,7 @@ public class EditorPage extends JPanel {
         JLabel colorLabel = createMutedLabel("Color");
         colorPickerButton = createColorPickerButton();
 
-        bendSlider = createTransformSlider(0, 360, 0);
+        bendSlider = createTransformSlider(-180, 180, 0);
         bendValueLabel = createTransformValueLabel("0 deg");
         bendSliderRow = addSliderControlRow(section, "Bend", bendSlider, bendValueLabel, button -> bendResetButton = button, this::resetBendForActiveLayer);
 

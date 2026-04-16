@@ -46,8 +46,11 @@ public class ButtonPreviewPanel extends JPanel {
     private static final Color PHOTO_BORDER = new Color(134, 146, 166);
 
     private static final Color ACTIVE_GUIDE_BORDER = new Color(56, 122, 232, 210);
+    private static final Color ACTIVE_GUIDE_FILL = new Color(56, 122, 232, 235);
     private static final Color DRAG_SNAP_GUIDE = new Color(52, 133, 255, 185);
     private static final int DRAG_SNAP_THRESHOLD = 6;
+    private static final int RESIZE_HANDLE_SIZE = 10;
+    private static final int RESIZE_HANDLE_HIT_PADDING = 6;
 
     private ProjectData projectData;
     private int activeLayerIndex = -1;
@@ -60,6 +63,7 @@ public class ButtonPreviewPanel extends JPanel {
     private double buttonToOuterRatio;
 
     private boolean draggingLayer;
+    private boolean resizingPhoto;
     private int lastDragX;
     private int lastDragY;
     private boolean snapToCenterX;
@@ -70,6 +74,7 @@ public class ButtonPreviewPanel extends JPanel {
         setPreferredSize(new Dimension(520, 520));
         setMinimumSize(new Dimension(260, 260));
         this.draggingLayer = false;
+        this.resizingPhoto = false;
         this.snapToCenterX = false;
         this.snapToCenterY = false;
         this.showGuides = true;
@@ -82,8 +87,9 @@ public class ButtonPreviewPanel extends JPanel {
             @Override
             public void mousePressed(MouseEvent event) {
                 PreviewGeometry geometry = getPreviewGeometry();
-                if (!geometry.isValid() || !isInsideButtonCircle(event.getX(), event.getY(), geometry)) {
+                if (!geometry.isValid()) {
                     draggingLayer = false;
+                    resizingPhoto = false;
                     return;
                 }
 
@@ -100,6 +106,7 @@ public class ButtonPreviewPanel extends JPanel {
 
                 if (hitLayerIndex < 0) {
                     draggingLayer = false;
+                    resizingPhoto = false;
                     return;
                 }
 
@@ -114,16 +121,41 @@ public class ButtonPreviewPanel extends JPanel {
                 LayerData layer = getActiveLayer();
                 if (layer == null || !layer.isPrintable()) {
                     draggingLayer = false;
+                    resizingPhoto = false;
+                    return;
+                }
+
+                if (!layer.isTextLayer() && isPointOnPhotoResizeBorder(layer, event.getX(), event.getY(), geometry)) {
+                    draggingLayer = false;
+                    resizingPhoto = true;
+                    lastDragX = event.getX();
+                    lastDragY = event.getY();
                     return;
                 }
 
                 draggingLayer = true;
+                resizingPhoto = false;
                 lastDragX = event.getX();
                 lastDragY = event.getY();
             }
 
             @Override
             public void mouseDragged(MouseEvent event) {
+                if (resizingPhoto) {
+                    LayerData layer = getActiveLayer();
+                    if (layer == null || layer.isTextLayer()) {
+                        resizingPhoto = false;
+                        return;
+                    }
+
+                    PreviewGeometry geometry = getPreviewGeometry();
+                    resizePhotoLayerFromPoint(layer, event.getX(), event.getY(), geometry);
+                    lastDragX = event.getX();
+                    lastDragY = event.getY();
+                    repaint();
+                    return;
+                }
+
                 if (!draggingLayer) {
                     return;
                 }
@@ -131,6 +163,7 @@ public class ButtonPreviewPanel extends JPanel {
                 LayerData layer = getActiveLayer();
                 if (layer == null) {
                     draggingLayer = false;
+                    resizingPhoto = false;
                     snapToCenterX = false;
                     snapToCenterY = false;
                     return;
@@ -170,6 +203,7 @@ public class ButtonPreviewPanel extends JPanel {
             public void mouseReleased(MouseEvent event) {
                 boolean wasSnapped = snapToCenterX || snapToCenterY;
                 draggingLayer = false;
+                resizingPhoto = false;
                 snapToCenterX = false;
                 snapToCenterY = false;
                 if (wasSnapped) {
@@ -441,10 +475,10 @@ public class ButtonPreviewPanel extends JPanel {
         int bendDegrees = layer.getBendPercent();
         String name = layer.getLayerName();
         int straightBaseline = getStraightBaseline(name, centerY, buttonDiameter) + layer.getTextOffsetY();
-        boolean topArc = isTopArcLayer(name, straightBaseline, centerY);
+        boolean topArc = bendDegrees > 0;
 
-        if (bendDegrees > 0) {
-            int arcDegrees = Math.min(360, bendDegrees);
+        if (bendDegrees != 0) {
+            int arcDegrees = Math.min(180, Math.abs(bendDegrees));
             drawCurvedText(g2, text, textCenterX, straightBaseline, baseCurveRadius, arcDegrees, topArc);
             return;
         }
@@ -616,11 +650,17 @@ public class ButtonPreviewPanel extends JPanel {
         int buttonY = geometry.centerY - geometry.buttonDiameter / 2;
 
         Shape oldClip = g2.getClip();
-        g2.clip(new Ellipse2D.Double(buttonX, buttonY, geometry.buttonDiameter, geometry.buttonDiameter));
+        if (layer.isTextLayer()) {
+            g2.clip(new Ellipse2D.Double(buttonX, buttonY, geometry.buttonDiameter, geometry.buttonDiameter));
+        }
 
         g2.setColor(ACTIVE_GUIDE_BORDER);
         g2.setStroke(new BasicStroke(1.7f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND, 1f, new float[] {7f, 5f}, 0f));
         g2.drawRect(guideBounds.x, guideBounds.y, guideBounds.width, guideBounds.height);
+
+        if (!layer.isTextLayer()) {
+            drawPhotoResizeHandles(g2, guideBounds);
+        }
 
         g2.setClip(oldClip);
     }
@@ -629,10 +669,6 @@ public class ButtonPreviewPanel extends JPanel {
         if (layer == null) {
             return null;
         }
-
-        int squareCenterX = geometry.centerX;
-        int squareCenterY = geometry.centerY;
-        int squareSize;
 
         if (layer.isTextLayer()) {
             String sample = layer.getTextContent() == null ? "" : layer.getTextContent().trim();
@@ -645,30 +681,40 @@ public class ButtonPreviewPanel extends JPanel {
 
             int baseline = getStraightBaseline(layer.getLayerName(), geometry.centerY, geometry.buttonDiameter) + layer.getTextOffsetY();
             int textWidth = Math.max(1, metrics.stringWidth(sample));
-            squareSize = Math.max(textWidth + 26, metrics.getHeight() + 28);
+            int rectWidth = Math.max(1, textWidth);
+            int rectHeight = Math.max(1, metrics.getHeight());
+            int rectCenterX = geometry.centerX + layer.getTextOffsetX();
+            int rectCenterY = baseline - metrics.getAscent() + (metrics.getHeight() / 2);
 
             int bendDegrees = layer.getBendPercent();
-            if (bendDegrees > 0) {
-                squareSize += (int) Math.round((bendDegrees / 360.0) * baseCurveRadius * 0.9);
+            if (bendDegrees != 0) {
+                int absBendDegrees = Math.abs(bendDegrees);
+                int arcHeight = (int) Math.round((absBendDegrees / 180.0) * baseCurveRadius * 0.9);
+                int arcWidth = (int) Math.round(arcHeight * 0.45);
+                rectWidth += arcWidth;
+                rectHeight += arcHeight;
+                boolean topArc = bendDegrees > 0;
+                int shift = (int) Math.round((absBendDegrees / 180.0) * rectHeight * 0.22);
+                rectCenterY += topArc ? shift : -shift;
             }
 
-            squareCenterX = geometry.centerX + layer.getTextOffsetX();
-            squareCenterY = baseline - metrics.getAscent() + (metrics.getHeight() / 2);
-            if (bendDegrees > 0) {
-                boolean topArc = isTopArcLayer(layer.getLayerName(), baseline, geometry.centerY);
-                int shift = (int) Math.round((bendDegrees / 360.0) * squareSize * 0.22);
-                squareCenterY += topArc ? shift : -shift;
-            }
-        } else {
-            if (layer.hasPhotoImage()) {
-                squareSize = (int) Math.round(geometry.buttonDiameter * 0.62 * (layer.getPhotoScalePercent() / 100.0));
-            } else {
-                squareSize = (int) Math.round(geometry.safeDiameter * 0.55);
-            }
-
-            squareCenterX = geometry.centerX + layer.getPhotoOffsetX();
-            squareCenterY = geometry.centerY + layer.getPhotoOffsetY();
+            int x = rectCenterX - (rectWidth / 2);
+            int y = rectCenterY - (rectHeight / 2);
+            return new Rectangle(x, y, rectWidth, rectHeight);
         }
+
+        int squareCenterX = geometry.centerX;
+        int squareCenterY = geometry.centerY;
+        int squareSize;
+
+        Rectangle photoBounds = computePhotoGuideBounds(layer, geometry);
+        if (photoBounds != null) {
+            return photoBounds;
+        }
+
+        squareSize = (int) Math.round(geometry.safeDiameter * 0.55);
+        squareCenterX = geometry.centerX + layer.getPhotoOffsetX();
+        squareCenterY = geometry.centerY + layer.getPhotoOffsetY();
 
         int maxSquare = Math.max(60, (int) Math.round(geometry.buttonDiameter * 0.94));
         squareSize = clamp(squareSize, 56, maxSquare);
@@ -680,6 +726,128 @@ public class ButtonPreviewPanel extends JPanel {
 
     private int clamp(int value, int min, int max) {
         return Math.max(min, Math.min(max, value));
+    }
+
+    private void resizePhotoLayerFromPoint(LayerData layer, int mouseX, int mouseY, PreviewGeometry geometry) {
+        Point2D localPoint = toLayerLocalPoint(layer, mouseX, mouseY, geometry);
+        if (localPoint == null) {
+            return;
+        }
+
+        PhotoDrawBounds baseBounds = computePhotoDrawBounds(layer, geometry, 100);
+        if (baseBounds == null || baseBounds.width <= 0 || baseBounds.height <= 0) {
+            return;
+        }
+
+        double halfWidth = Math.max(12.0, Math.abs(localPoint.getX() - geometry.centerX));
+        double halfHeight = Math.max(12.0, Math.abs(localPoint.getY() - geometry.centerY));
+
+        double widthRatio = (halfWidth * 2.0) / baseBounds.width;
+        double heightRatio = (halfHeight * 2.0) / baseBounds.height;
+        int nextScalePercent = (int) Math.round(Math.max(widthRatio, heightRatio) * 100.0);
+        layer.setPhotoScalePercent(nextScalePercent);
+    }
+
+    private boolean isPointOnPhotoResizeBorder(LayerData layer, int x, int y, PreviewGeometry geometry) {
+        Rectangle guideBounds = computePhotoGuideBounds(layer, geometry);
+        if (guideBounds == null) {
+            return false;
+        }
+
+        Point2D localPoint = toLayerLocalPoint(layer, x, y, geometry);
+        if (localPoint == null) {
+            return false;
+        }
+
+        if (isPointInsideResizeHandle(guideBounds, localPoint)) {
+            return true;
+        }
+
+        Rectangle outerBounds = new Rectangle(guideBounds);
+        outerBounds.grow(RESIZE_HANDLE_HIT_PADDING, RESIZE_HANDLE_HIT_PADDING);
+
+        Rectangle innerBounds = new Rectangle(guideBounds);
+        int shrinkBy = Math.max(6, RESIZE_HANDLE_SIZE);
+        innerBounds.grow(-shrinkBy, -shrinkBy);
+
+        return outerBounds.contains(localPoint) && !innerBounds.contains(localPoint);
+    }
+
+    private boolean isPointInsideResizeHandle(Rectangle guideBounds, Point2D localPoint) {
+        for (Rectangle handle : getResizeHandles(guideBounds)) {
+            Rectangle hitBounds = new Rectangle(handle);
+            hitBounds.grow(RESIZE_HANDLE_HIT_PADDING, RESIZE_HANDLE_HIT_PADDING);
+            if (hitBounds.contains(localPoint)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private Point2D toLayerLocalPoint(LayerData layer, int x, int y, PreviewGeometry geometry) {
+        AffineTransform layerTransform = createLayerTransform(layer, geometry.centerX, geometry.centerY);
+        try {
+            AffineTransform inverse = layerTransform.createInverse();
+            return inverse.transform(new Point2D.Double(x, y), null);
+        } catch (NoninvertibleTransformException exception) {
+            return null;
+        }
+    }
+
+    private Rectangle computePhotoGuideBounds(LayerData layer, PreviewGeometry geometry) {
+        PhotoDrawBounds photoBounds = computePhotoDrawBounds(layer, geometry, layer.getPhotoScalePercent());
+        if (photoBounds == null) {
+            return null;
+        }
+        return new Rectangle(photoBounds.x, photoBounds.y, photoBounds.width, photoBounds.height);
+    }
+
+    private PhotoDrawBounds computePhotoDrawBounds(LayerData layer, PreviewGeometry geometry, int scalePercent) {
+        if (layer == null) {
+            return null;
+        }
+
+        if (!layer.hasPhotoImage()) {
+            int fallbackSize = (int) Math.round(geometry.safeDiameter * 0.55);
+            int fallbackX = geometry.centerX - (fallbackSize / 2) + layer.getPhotoOffsetX();
+            int fallbackY = geometry.centerY - (fallbackSize / 2) + layer.getPhotoOffsetY();
+            return new PhotoDrawBounds(fallbackX, fallbackY, fallbackSize, fallbackSize);
+        }
+
+        BufferedImage image = layer.getPhotoImage();
+        double coverScale = Math.max((double) geometry.buttonDiameter / image.getWidth(), (double) geometry.buttonDiameter / image.getHeight());
+        double userScale = Math.max(0.1, scalePercent / 100.0);
+        double scale = coverScale * userScale;
+
+        int drawWidth = Math.max(1, (int) Math.round(image.getWidth() * scale));
+        int drawHeight = Math.max(1, (int) Math.round(image.getHeight() * scale));
+        int drawX = geometry.centerX - (drawWidth / 2) + layer.getPhotoOffsetX();
+        int drawY = geometry.centerY - (drawHeight / 2) + layer.getPhotoOffsetY();
+        return new PhotoDrawBounds(drawX, drawY, drawWidth, drawHeight);
+    }
+
+    private void drawPhotoResizeHandles(Graphics2D g2, Rectangle guideBounds) {
+        Stroke oldStroke = g2.getStroke();
+        g2.setStroke(new BasicStroke(1.2f));
+
+        for (Rectangle handle : getResizeHandles(guideBounds)) {
+            g2.setColor(ACTIVE_GUIDE_FILL);
+            g2.fillRect(handle.x, handle.y, handle.width, handle.height);
+            g2.setColor(Color.WHITE);
+            g2.drawRect(handle.x, handle.y, handle.width, handle.height);
+        }
+
+        g2.setStroke(oldStroke);
+    }
+
+    private Rectangle[] getResizeHandles(Rectangle guideBounds) {
+        int halfHandle = RESIZE_HANDLE_SIZE / 2;
+        return new Rectangle[] {
+            new Rectangle(guideBounds.x - halfHandle, guideBounds.y - halfHandle, RESIZE_HANDLE_SIZE, RESIZE_HANDLE_SIZE),
+            new Rectangle(guideBounds.x + guideBounds.width - halfHandle, guideBounds.y - halfHandle, RESIZE_HANDLE_SIZE, RESIZE_HANDLE_SIZE),
+            new Rectangle(guideBounds.x - halfHandle, guideBounds.y + guideBounds.height - halfHandle, RESIZE_HANDLE_SIZE, RESIZE_HANDLE_SIZE),
+            new Rectangle(guideBounds.x + guideBounds.width - halfHandle, guideBounds.y + guideBounds.height - halfHandle, RESIZE_HANDLE_SIZE, RESIZE_HANDLE_SIZE)
+        };
     }
 
 
@@ -736,6 +904,20 @@ public class ButtonPreviewPanel extends JPanel {
 
         private boolean isValid() {
             return bleedDiameter > 0 && buttonDiameter > 0 && safeDiameter > 0;
+        }
+    }
+
+    private static final class PhotoDrawBounds {
+        private final int x;
+        private final int y;
+        private final int width;
+        private final int height;
+
+        private PhotoDrawBounds(int x, int y, int width, int height) {
+            this.x = x;
+            this.y = y;
+            this.width = width;
+            this.height = height;
         }
     }
 }

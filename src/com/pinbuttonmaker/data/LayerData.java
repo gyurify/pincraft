@@ -209,7 +209,7 @@ public class LayerData {
     }
 
     public void setBendPercent(int bendPercent) {
-        this.bendPercent = clamp(bendPercent, 0, 360);
+        this.bendPercent = clamp(bendPercent, -180, 180);
     }
 
     public BufferedImage getPhotoImage() {
