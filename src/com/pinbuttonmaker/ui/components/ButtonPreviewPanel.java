@@ -767,8 +767,7 @@ public class ButtonPreviewPanel extends JPanel {
             return ResizeHandle.NONE;
         }
 
-        ResizeHandle handle = getResizeHandleAtPoint(guideBounds, localPoint, false);
-        return handle == ResizeHandle.NONE ? ResizeHandle.CORNER_BOTTOM_RIGHT : handle;
+        return getResizeHandleAtPoint(guideBounds, localPoint, false);
     }
 
     private ResizeHandle getResizeHandleAtPoint(Rectangle guideBounds, Point2D localPoint, boolean includeSides) {

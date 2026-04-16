@@ -89,6 +89,11 @@ public class EditorPage extends JPanel {
     private static final Color BUTTON_BORDER = new Color(90, 102, 120);
     private static final Color BUTTON_TEXT = new Color(243, 246, 251);
     private static final Color BUTTON_ACCENT_BG = new Color(59, 130, 246);
+    private static final Color BUTTON_ACCENT_HOVER_BG = new Color(37, 99, 235);
+    private static final Color SAVE_BUTTON_BG = new Color(34, 197, 94);
+    private static final Color SAVE_BUTTON_HOVER_BG = new Color(22, 163, 74);
+    private static final Color LOAD_BUTTON_BG = new Color(59, 130, 246);
+    private static final Color LOAD_BUTTON_HOVER_BG = new Color(37, 99, 235);
 
     private static final Color WORKSPACE_BG = new Color(210, 215, 224);
     private static final Color WORKSPACE_BORDER = new Color(179, 186, 198);
@@ -205,11 +210,11 @@ public class EditorPage extends JPanel {
         strip.setOpaque(false);
         strip.setBorder(new EmptyBorder(8, 10, 8, 10));
 
-        JButton saveButton = createTopButton("Save");
+        JButton saveButton = createTopButton("Save", SAVE_BUTTON_BG, SAVE_BUTTON_HOVER_BG);
         saveButton.addActionListener(event -> saveCurrentProjectToMemory());
         strip.add(saveButton);
 
-        JButton loadButton = createTopButton("Load");
+        JButton loadButton = createTopButton("Load", LOAD_BUTTON_BG, LOAD_BUTTON_HOVER_BG);
         loadButton.addActionListener(event -> loadProjectFromMemory());
         strip.add(loadButton);
 
@@ -229,7 +234,7 @@ public class EditorPage extends JPanel {
         homeButton.addActionListener(event -> router.showHome());
         strip.add(homeButton);
 
-        JButton printButton = createTopButton("Print ->", BUTTON_ACCENT_BG);
+        JButton printButton = createTopButton("Print ->", BUTTON_ACCENT_BG, BUTTON_ACCENT_HOVER_BG);
         printButton.addActionListener(event -> router.showPrint());
         strip.add(printButton);
 
@@ -238,10 +243,14 @@ public class EditorPage extends JPanel {
     }
 
     private JButton createTopButton(String text) {
-        return createTopButton(text, BUTTON_BG);
+        return createTopButton(text, BUTTON_BG, BUTTON_HOVER_BG);
     }
 
     private JButton createTopButton(String text, Color baseBackground) {
+        return createTopButton(text, baseBackground, BUTTON_HOVER_BG);
+    }
+
+    private JButton createTopButton(String text, Color baseBackground, Color hoverBackground) {
         JButton button = new JButton(text);
         button.setFocusPainted(false);
         button.setHorizontalAlignment(SwingConstants.CENTER);
@@ -256,7 +265,7 @@ public class EditorPage extends JPanel {
         button.addMouseListener(new MouseAdapter() {
             @Override
             public void mouseEntered(MouseEvent event) {
-                button.setBackground(baseBackground.equals(BUTTON_ACCENT_BG) ? BUTTON_ACCENT_BG.brighter() : BUTTON_HOVER_BG);
+                button.setBackground(hoverBackground);
             }
 
             @Override
