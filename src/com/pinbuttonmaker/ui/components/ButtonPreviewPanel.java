@@ -97,6 +97,18 @@ public class ButtonPreviewPanel extends JPanel {
                 snapToCenterY = false;
 
                 if (!isInsideButtonCircle(event.getX(), event.getY(), geometry)) {
+                    LayerData activeLayer = getActiveLayer();
+                    if (activeLayer != null && activeLayer.isPrintable() && !activeLayer.isTextLayer()) {
+                        ResizeHandle photoHandle = getPhotoResizeHandleAtPoint(activeLayer, event.getX(), event.getY(), geometry);
+                        if (photoHandle != ResizeHandle.NONE) {
+                            draggingLayer = false;
+                            resizingPhoto = true;
+                            lastDragX = event.getX();
+                            lastDragY = event.getY();
+                            return;
+                        }
+                    }
+
                     draggingLayer = false;
                     resizingPhoto = false;
                     clearActiveLayerSelection();
