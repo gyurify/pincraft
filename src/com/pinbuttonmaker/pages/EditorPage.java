@@ -210,31 +210,52 @@ public class EditorPage extends JPanel {
         strip.setOpaque(false);
         strip.setBorder(new EmptyBorder(8, 10, 8, 10));
 
+        //save button.
         JButton saveButton = createTopButton("Save", SAVE_BUTTON_BG, SAVE_BUTTON_HOVER_BG);
+
+        //save the current project for the signed-in user.
         saveButton.addActionListener(event -> saveCurrentProjectToMemory());
         strip.add(saveButton);
 
+        //load button.
         JButton loadButton = createTopButton("Load", LOAD_BUTTON_BG, LOAD_BUTTON_HOVER_BG);
+
+        //load a saved project back into the editor.
         loadButton.addActionListener(event -> loadProjectFromMemory());
         strip.add(loadButton);
 
+        //upload image button.
         topUploadButton = createTopButton("Upload Image");
+
+        //replace or add a photo for the active photo layer from the top toolbar.
         topUploadButton.addActionListener(event -> uploadPhotoFromToolbar());
         strip.add(topUploadButton);
 
+        //add photo button.
         JButton addPhotoTopButton = createTopButton("Add Photo");
+
+        //create a new photo layer on the current button.
         addPhotoTopButton.addActionListener(event -> addPhotoLayer());
         strip.add(addPhotoTopButton);
 
+        //add text button.
         JButton addTextTopButton = createTopButton("Add Text");
+
+        //create a new text layer on the current button.
         addTextTopButton.addActionListener(event -> addTextLayer());
         strip.add(addTextTopButton);
 
+        //home button.
         JButton homeButton = createTopButton("Home");
+
+        //go back to the home page.
         homeButton.addActionListener(event -> router.showHome());
         strip.add(homeButton);
 
+        //print button.
         JButton printButton = createTopButton("Print ->", BUTTON_ACCENT_BG, BUTTON_ACCENT_HOVER_BG);
+
+        //open the print page for layout and pdf export.
         printButton.addActionListener(event -> router.showPrint());
         strip.add(printButton);
 

@@ -30,6 +30,7 @@ public class UserAuthService {
     }
 
     public AuthResult register(String email, String password) {
+        //create a new account after validation.
         String normalizedEmail = normalizeEmail(email);
         String normalizedPassword = normalizePassword(password);
 
@@ -65,6 +66,7 @@ public class UserAuthService {
     }
 
     public AuthResult login(String email, String password) {
+        //check the email and password against the stored hash.
         String normalizedEmail = normalizeEmail(email);
         String normalizedPassword = normalizePassword(password);
 
@@ -126,6 +128,7 @@ public class UserAuthService {
     }
 
     public AuthResult requestPasswordReset(String email) {
+        //create and email a short-lived reset code.
         String normalizedEmail = normalizeEmail(email);
 
         if (!databaseManager.isAvailable()) {
@@ -163,6 +166,7 @@ public class UserAuthService {
     }
 
     public AuthResult resetPassword(String email, String resetCode, String newPassword) {
+        //verify the reset code before changing the password hash.
         String normalizedEmail = normalizeEmail(email);
         String normalizedCode = resetCode == null ? "" : resetCode.trim();
         String normalizedPassword = normalizePassword(newPassword);
@@ -214,6 +218,7 @@ public class UserAuthService {
     }
 
     public AuthResult changePassword(long userId, String currentPassword, String newPassword) {
+        //require the current password before allowing a password change.
         String normalizedCurrentPassword = normalizePassword(currentPassword);
         String normalizedNewPassword = normalizePassword(newPassword);
 
@@ -371,6 +376,7 @@ public class UserAuthService {
 
     private String hashPassword(String password) {
         try {
+            //store hashes instead of plain text passwords.
             MessageDigest digest = MessageDigest.getInstance("SHA-256");
             byte[] hashed = digest.digest(password.getBytes(StandardCharsets.UTF_8));
             StringBuilder builder = new StringBuilder(hashed.length * 2);

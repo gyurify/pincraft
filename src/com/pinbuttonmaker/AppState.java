@@ -33,6 +33,8 @@ public class AppState {
         this.currentProject = new ProjectData("Untitled Project");
         this.themeMode = ThemeMode.LIGHT;
         this.savedProjects = new ArrayList<>();
+
+        //create the shared services once so every page uses the same state and database connection rules.
         this.databaseManager = new DatabaseManager();
         this.userAuthService = new UserAuthService(
             databaseManager,
@@ -66,6 +68,7 @@ public class AppState {
     }
 
     public void setAuthenticatedUser(Long userId, String userEmail) {
+        //reset the working project when the signed-in account changes.
         boolean switchedAccounts = currentUserId != null && userId != null && !currentUserId.equals(userId);
 
         this.currentUserId = userId;
@@ -79,6 +82,7 @@ public class AppState {
     }
 
     public void logout() {
+        //clear the session and return to a clean guest state.
         this.currentUserId = null;
         this.currentUser = "Guest";
         this.currentProject = new ProjectData("Untitled Project");
@@ -111,6 +115,7 @@ public class AppState {
             return ProjectStorageService.StorageResult.success(new ArrayList<>(), "No signed-in account.");
         }
 
+        //reload the saved designs from sqlite for the current user.
         ProjectStorageService.StorageResult<List<ProjectData>> result = projectStorageService.loadProjectsForUser(currentUserId);
         if (result.isSuccess()) {
             savedProjects.clear();
@@ -131,6 +136,7 @@ public class AppState {
             return ProjectStorageService.StorageResult.failure("Sign in to save designs to your account.");
         }
 
+        //save a copy so the editor keeps its in-memory project untouched by storage logic.
         ProjectStorageService.StorageResult<Void> result = projectStorageService.saveProject(currentUserId, project.copy());
         if (result.isSuccess()) {
             refreshSavedProjects();
@@ -143,6 +149,7 @@ public class AppState {
             return ProjectStorageService.StorageResult.failure("Sign in to open saved projects.");
         }
 
+        //replace the working project with a fresh copy from storage.
         ProjectStorageService.StorageResult<ProjectData> result = projectStorageService.loadProjectForUser(currentUserId, projectId);
         if (!result.isSuccess()) {
             return result;

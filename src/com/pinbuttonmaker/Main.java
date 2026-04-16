@@ -8,6 +8,7 @@ public final class Main {
     }
 
     public static void main(String[] args) {
+        //start the swing app on the ui thread.
         SwingUtilities.invokeLater(() -> {
             AppFrame appFrame = new AppFrame();
             appFrame.setVisible(true);

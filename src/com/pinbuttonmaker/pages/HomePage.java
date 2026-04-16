@@ -251,7 +251,10 @@ public class HomePage extends JPanel {
         JMenuItem changePasswordItem = createProfileMenuItem("Change Password", true);
         JMenuItem logoutItem = createProfileMenuItem("Logout", true);
 
+        //open the password change dialog for the signed-in user.
         changePasswordItem.addActionListener(event -> handleChangePassword());
+
+        //clear the current session and go back to login.
         logoutItem.addActionListener(event -> handleLogout());
 
         menu.add(accountItem);
@@ -437,6 +440,7 @@ public class HomePage extends JPanel {
     }
 
     private CustomButton createStartProjectButton() {
+        //start new project button.
         CustomButton button = new CustomButton("Start New Project");
         button.setBackground(PRIMARY_BLUE);
         button.setForeground(UIStyles.TEXT_PRIMARY);
@@ -445,6 +449,8 @@ public class HomePage extends JPanel {
             BorderFactory.createEmptyBorder(8, 16, 8, 16)
         ));
         button.setFocusPainted(false);
+
+        //create a fresh project and move the user to the editor.
         button.addActionListener(event -> startNewProject());
         return button;
     }
@@ -628,7 +634,10 @@ public class HomePage extends JPanel {
             buttonFontSize,
             buttonHeight
         );
+
+        //open button.
         openButton.addActionListener(event -> {
+            //load the selected saved project into the editor.
             ProjectStorageService.StorageResult<ProjectData> result = appState.loadProjectAsCurrent(project.getProjectId());
             if (!result.isSuccess()) {
                 JOptionPane.showMessageDialog(
@@ -650,6 +659,9 @@ public class HomePage extends JPanel {
             buttonFontSize,
             buttonHeight
         );
+
+        //remove button.
+        //delete the selected project from the signed-in account.
         removeButton.addActionListener(event -> handleRemoveProject(project));
 
         actions.add(openButton);

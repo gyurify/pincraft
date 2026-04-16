@@ -20,6 +20,7 @@ public class AppFrame extends JFrame {
     public AppFrame() {
         super(UIConstants.APP_TITLE);
 
+        //create the shared app state and router once for the whole app.
         this.appState = new AppState();
         this.appRouter = new AppRouter(appState);
 
@@ -32,7 +33,10 @@ public class AppFrame extends JFrame {
         setMinimumSize(UIConstants.FRAME_MIN_SIZE);
         setLayout(new BorderLayout());
 
+        //show the routed pages inside one frame.
         add(appRouter.getMainPanel(), BorderLayout.CENTER);
+
+        //open the login page first.
         appRouter.showLogin();
 
         attachResizeGuards();
@@ -43,6 +47,7 @@ public class AppFrame extends JFrame {
         addComponentListener(new ComponentAdapter() {
             @Override
             public void componentResized(ComponentEvent event) {
+                //keep the default window proportions usable while resizing.
                 enforceDefaultMinimumRatio();
             }
         });

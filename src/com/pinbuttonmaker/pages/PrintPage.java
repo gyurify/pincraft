@@ -220,14 +220,17 @@ public class PrintPage extends JPanel {
         fitSummaryLabel.setForeground(secondaryText());
         fitSummaryLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
 
+        //back button.
         CustomButton backButton = new CustomButton("Back");
         backButton.setFont(new Font("SansSerif", Font.BOLD, 15));
         backButton.setPreferredSize(new Dimension(160, 48));
         backButton.setMaximumSize(new Dimension(160, 48));
         backButton.setBackground(UIStyles.ACTION_GREY);
         backButton.setForeground(UIStyles.TEXT_PRIMARY);
+        //return to the editor without changing the placed print items.
         backButton.addActionListener(event -> router.showEditor());
 
+        //download pdf button.
         CustomButton downloadPdfButton = new CustomButton("Download PDF");
         downloadPdfButton.setFont(new Font("SansSerif", Font.BOLD, 16));
         downloadPdfButton.setPreferredSize(new Dimension(160, 48));
@@ -238,6 +241,7 @@ public class PrintPage extends JPanel {
             BorderFactory.createLineBorder(UIStyles.ACTION_BLUE_HOVER),
             BorderFactory.createEmptyBorder(8, 14, 8, 14)
         ));
+        //build the current print layout and export it as a pdf file.
         downloadPdfButton.addActionListener(event -> exportCurrentLayoutAsPdf());
 
         JPanel actionRow = new JPanel(new FlowLayout(FlowLayout.CENTER, 12, 0));

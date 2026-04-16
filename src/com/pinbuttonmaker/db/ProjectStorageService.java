@@ -31,6 +31,7 @@ public class ProjectStorageService {
     }
 
     public StorageResult<List<ProjectData>> loadProjectsForUser(Long userId) {
+        //load the saved project headers for the home page and load dialog.
         if (!databaseManager.isAvailable()) {
             return StorageResult.failure(databaseManager.getStatusMessage());
         }
@@ -59,6 +60,7 @@ public class ProjectStorageService {
     }
 
     public StorageResult<ProjectData> loadProjectForUser(Long userId, String projectId) {
+        //load one full project with all of its layers.
         if (!databaseManager.isAvailable()) {
             return StorageResult.failure(databaseManager.getStatusMessage());
         }
@@ -91,6 +93,7 @@ public class ProjectStorageService {
     }
 
     public StorageResult<Void> saveProject(Long userId, ProjectData project) {
+        //save the project header first, then rewrite its layers in order.
         if (!databaseManager.isAvailable()) {
             return StorageResult.failure(databaseManager.getStatusMessage());
         }
@@ -132,6 +135,7 @@ public class ProjectStorageService {
     }
 
     public StorageResult<Void> deleteProject(Long userId, String projectId) {
+        //remove one saved design for the current user.
         if (!databaseManager.isAvailable()) {
             return StorageResult.failure(databaseManager.getStatusMessage());
         }

@@ -434,11 +434,14 @@ public class LoginPage extends JPanel {
     }
 
     private RoundedPrimaryButton createSubmitButton() {
+        //submit button.
         RoundedPrimaryButton button = new RoundedPrimaryButton("Sign In  ->");
         button.setForeground(Color.WHITE);
         button.setBackground(PRIMARY_BLUE);
         button.setHoverBackground(PRIMARY_BLUE_HOVER);
         button.setAlignmentX(Component.LEFT_ALIGNMENT);
+
+        //run sign in or register logic based on the active form mode.
         button.addActionListener(event -> handleEmailAuth());
         return button;
     }
@@ -459,19 +462,25 @@ public class LoginPage extends JPanel {
     }
 
     private RoundedPrimaryButton createResetActionButton() {
+        //reset password button.
         RoundedPrimaryButton button = new RoundedPrimaryButton("Send Reset Code  ->");
         button.setForeground(Color.WHITE);
         button.setBackground(PRIMARY_BLUE);
         button.setHoverBackground(PRIMARY_BLUE_HOVER);
         button.setAlignmentX(Component.LEFT_ALIGNMENT);
+
+        //either send the reset code or finish the password reset.
         button.addActionListener(event -> handleResetAction());
         return button;
     }
 
     private JButton createResetBackButton() {
+        //back button.
         JButton button = createLinkButton("Back to sign in");
         button.setFont(new Font("SansSerif", Font.BOLD, 14));
         button.setAlignmentX(Component.LEFT_ALIGNMENT);
+
+        //return to the normal sign in form.
         button.addActionListener(event -> showAuthFlow(false));
         return button;
     }

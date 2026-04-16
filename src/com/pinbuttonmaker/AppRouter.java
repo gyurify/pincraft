@@ -38,6 +38,7 @@ public class AppRouter {
     }
 
     private void registerPages() {
+        //register each screen once so the router can switch between them.
         registerRoute(ROUTE_LOGIN, new LoginPage(this, appState));
         registerRoute(ROUTE_HOME, new HomePage(this, appState));
         registerRoute(ROUTE_EDITOR, new EditorPage(this, appState));
@@ -46,6 +47,7 @@ public class AppRouter {
 
     private JPanel createPrintPage() {
         try {
+            //load the print page dynamically so the app can still open even if print dependencies are missing.
             Class<?> printPageClass = Class.forName("com.pinbuttonmaker.pages.PrintPage");
             Object instance = printPageClass
                 .getConstructor(AppRouter.class, AppState.class)
@@ -76,15 +78,18 @@ public class AppRouter {
     }
 
     public void navigate(String route) {
+        //remember the active route so it can be reopened after a reload.
         currentRoute = route;
         cardLayout.show(mainPanel, route);
         FadablePanel activePanel = routePanels.get(route);
         if (activePanel != null) {
+            //fade the target page in for a smoother transition.
             FadeAnimator.fadeIn(activePanel);
         }
     }
 
     public void reloadRoutes() {
+        //rebuild the pages when shared app settings change.
         String routeToShow = currentRoute == null ? ROUTE_LOGIN : currentRoute;
         routePanels.clear();
         mainPanel.removeAll();

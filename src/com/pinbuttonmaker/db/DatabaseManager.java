@@ -21,6 +21,7 @@ public class DatabaseManager {
         this.available = false;
         this.statusMessage = "Database is not initialized.";
 
+        //prepare the sqlite file and tables when the app starts.
         initialize();
     }
 
@@ -30,6 +31,7 @@ public class DatabaseManager {
             Class.forName(SQLITE_DRIVER);
 
             try (Connection connection = openConnection(); Statement statement = connection.createStatement()) {
+                //store registered users here.
                 statement.executeUpdate(
                     "CREATE TABLE IF NOT EXISTS users ("
                         + "id INTEGER PRIMARY KEY AUTOINCREMENT, "
@@ -39,6 +41,7 @@ public class DatabaseManager {
                         + ")"
                 );
 
+                //store one-time reset codes for forgot password.
                 statement.executeUpdate(
                     "CREATE TABLE IF NOT EXISTS password_reset_codes ("
                         + "id INTEGER PRIMARY KEY AUTOINCREMENT, "
@@ -50,6 +53,7 @@ public class DatabaseManager {
                         + ")"
                 );
 
+                //store one row per saved project.
                 statement.executeUpdate(
                     "CREATE TABLE IF NOT EXISTS projects ("
                         + "id TEXT PRIMARY KEY, "
@@ -63,6 +67,7 @@ public class DatabaseManager {
                         + ")"
                 );
 
+                //store every layer that belongs to a saved project.
                 statement.executeUpdate(
                     "CREATE TABLE IF NOT EXISTS project_layers ("
                         + "id INTEGER PRIMARY KEY AUTOINCREMENT, "
@@ -114,6 +119,7 @@ public class DatabaseManager {
     public Connection openConnection() throws SQLException {
         Connection connection = DriverManager.getConnection(jdbcUrl);
         try (Statement statement = connection.createStatement()) {
+            //enforce foreign key rules in sqlite for every connection.
             statement.execute("PRAGMA foreign_keys = ON");
         }
         return connection;
