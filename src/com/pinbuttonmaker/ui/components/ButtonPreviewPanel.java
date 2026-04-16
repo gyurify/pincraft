@@ -401,7 +401,7 @@ public class ButtonPreviewPanel extends JPanel {
 
             Graphics2D layerGraphics = (Graphics2D) g2.create();
             layerGraphics.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, layer.getOpacity()));
-            applyLayerTransform(layerGraphics, layer, geometry.centerX, geometry.centerY);
+            applyLayerTransform(layerGraphics, layer, geometry);
 
             if (layer.isTextLayer()) {
                 drawTextLayer(layerGraphics, layer, geometry.centerX, geometry.centerY, geometry.buttonDiameter, baseCurveRadius);
@@ -415,7 +415,7 @@ public class ButtonPreviewPanel extends JPanel {
         LayerData activeLayer = getActiveLayer();
         if (showGuides && activeLayer != null) {
             Graphics2D overlayGraphics = (Graphics2D) g2.create();
-            applyLayerTransform(overlayGraphics, activeLayer, geometry.centerX, geometry.centerY);
+            applyLayerTransform(overlayGraphics, activeLayer, geometry);
             drawActiveLayerGuide(overlayGraphics, activeLayer, geometry, baseCurveRadius);
             overlayGraphics.dispose();
         }
@@ -452,7 +452,7 @@ public class ButtonPreviewPanel extends JPanel {
         Rectangle interactiveBounds = new Rectangle(guideBounds);
         interactiveBounds.grow(10, 10);
 
-        AffineTransform layerTransform = createLayerTransform(layer, geometry.centerX, geometry.centerY);
+        AffineTransform layerTransform = createLayerTransform(layer, geometry);
         try {
             AffineTransform inverse = layerTransform.createInverse();
             Point2D localPoint = inverse.transform(new Point2D.Double(x, y), null);
@@ -560,22 +560,37 @@ public class ButtonPreviewPanel extends JPanel {
         }
     }
 
-    private void applyLayerTransform(Graphics2D g2, LayerData layer, int centerX, int centerY) {
-        g2.transform(createLayerTransform(layer, centerX, centerY));
+    private void applyLayerTransform(Graphics2D g2, LayerData layer, PreviewGeometry geometry) {
+        g2.transform(createLayerTransform(layer, geometry));
     }
 
-    private AffineTransform createLayerTransform(LayerData layer, int centerX, int centerY) {
+    private AffineTransform createLayerTransform(LayerData layer, PreviewGeometry geometry) {
+        Point2D.Double anchor = getLayerTransformAnchor(layer, geometry);
         double sizeScale = layer.isTextLayer() ? layer.getSizePercent() / 100.0 : 1.0;
-        double stretchScale = layer.getStretchPercent() / 100.0;
+        double stretchScale = layer.isTextLayer() ? layer.getStretchPercent() / 100.0 : 1.0;
         double scaleX = sizeScale * stretchScale;
         double scaleY = sizeScale;
 
         AffineTransform transform = new AffineTransform();
-        transform.translate(centerX, centerY);
+        transform.translate(anchor.x, anchor.y);
         transform.rotate(Math.toRadians(layer.getRotationDegrees()));
         transform.scale(scaleX, scaleY);
-        transform.translate(-centerX, -centerY);
+        transform.translate(-anchor.x, -anchor.y);
         return transform;
+    }
+
+    private Point2D.Double getLayerTransformAnchor(LayerData layer, PreviewGeometry geometry) {
+        if (layer == null) {
+            return new Point2D.Double(geometry.centerX, geometry.centerY);
+        }
+
+        int baseCurveRadius = (int) (geometry.safeDiameter * 0.52);
+        Rectangle guideBounds = computeLayerGuideBounds(layer, geometry, baseCurveRadius);
+        if (guideBounds == null) {
+            return new Point2D.Double(geometry.centerX, geometry.centerY);
+        }
+
+        return new Point2D.Double(guideBounds.getCenterX(), guideBounds.getCenterY());
     }
 
     private void drawCenteredText(Graphics2D g2, String text, int centerX, int baselineY) {
@@ -649,14 +664,13 @@ public class ButtonPreviewPanel extends JPanel {
             return;
         }
 
-        int buttonX = geometry.centerX - geometry.buttonDiameter / 2;
-        int buttonY = geometry.centerY - geometry.buttonDiameter / 2;
-
         g2.setColor(ACTIVE_GUIDE_BORDER);
         g2.setStroke(new BasicStroke(1.7f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND, 1f, new float[] {7f, 5f}, 0f));
         g2.drawRect(guideBounds.x, guideBounds.y, guideBounds.width, guideBounds.height);
 
-        drawResizeHandles(g2, guideBounds);
+        if (!layer.isTextLayer()) {
+            drawResizeHandles(g2, guideBounds);
+        }
     }
 
     private Rectangle computeLayerGuideBounds(LayerData layer, PreviewGeometry geometry, int baseCurveRadius) {
@@ -771,7 +785,7 @@ public class ButtonPreviewPanel extends JPanel {
     }
 
     private Point2D toLayerLocalPoint(LayerData layer, int x, int y, PreviewGeometry geometry) {
-        AffineTransform layerTransform = createLayerTransform(layer, geometry.centerX, geometry.centerY);
+        AffineTransform layerTransform = createLayerTransform(layer, geometry);
         try {
             AffineTransform inverse = layerTransform.createInverse();
             return inverse.transform(new Point2D.Double(x, y), null);
