@@ -1869,11 +1869,27 @@ public class EditorPage extends JPanel {
     }
 
     private void handlePreviewLayerSelection(int layerIndex) {
-        if (projectData == null || layerIndex < 0 || layerIndex >= projectData.getLayers().size()) {
+        if (projectData == null) {
+            return;
+        }
+
+        if (layerIndex < 0) {
+            clearActiveLayerSelection();
+            return;
+        }
+
+        if (layerIndex >= projectData.getLayers().size()) {
             return;
         }
 
         switchActiveLayer(layerIndex);
+    }
+
+    private void clearActiveLayerSelection() {
+        activeLayerIndex = -1;
+        previewPanel.setActiveLayerIndex(-1);
+        refreshControlsFromActiveLayer();
+        refreshLayerTabStyles();
     }
 
     private void toggleLayerVisibility(int layerIndex) {

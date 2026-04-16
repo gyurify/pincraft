@@ -96,6 +96,13 @@ public class ButtonPreviewPanel extends JPanel {
                 snapToCenterX = false;
                 snapToCenterY = false;
 
+                if (!isInsideButtonCircle(event.getX(), event.getY(), geometry)) {
+                    draggingLayer = false;
+                    resizingPhoto = false;
+                    clearActiveLayerSelection();
+                    return;
+                }
+
                 int hitLayerIndex = findLayerAtPoint(event.getX(), event.getY(), geometry);
                 if (hitLayerIndex < 0) {
                     LayerData active = getActiveLayer();
@@ -310,6 +317,18 @@ public class ButtonPreviewPanel extends JPanel {
 
     public void setLayerSelectionListener(LayerSelectionListener layerSelectionListener) {
         this.layerSelectionListener = layerSelectionListener;
+    }
+
+    private void clearActiveLayerSelection() {
+        if (activeLayerIndex < 0) {
+            return;
+        }
+
+        activeLayerIndex = -1;
+        if (layerSelectionListener != null) {
+            layerSelectionListener.onLayerSelected(-1);
+        }
+        repaint();
     }
 
     @Override
