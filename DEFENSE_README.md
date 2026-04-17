@@ -135,6 +135,25 @@ used for:
 - `JScrollPane`
 - `JOptionPane`
 
+short explanation of each:
+
+- `jframe`
+  - the main application window
+- `jpanel`
+  - a container used to group and arrange components
+- `jbutton`
+  - a clickable button for actions like save, load, or print
+- `jlabel`
+  - used to show text or captions on the screen
+- `jtextfield`
+  - used for one-line text input like email or project name
+- `jpasswordfield`
+  - used for password input while hiding the typed characters
+- `jscrollpane`
+  - adds scrolling when a panel or content is bigger than the visible area
+- `joptionpane`
+  - shows built-in message boxes, warnings, and confirm dialogs
+
 purpose:
 - builds the visible user interface of the app
 
