@@ -167,6 +167,21 @@ used for:
 - `GridBagLayout`
 - `Dimension`
 
+short explanation of each:
+
+- `color`
+  - used to set the colors of text, buttons, backgrounds, and shapes
+- `font`
+  - used to set the style and size of text
+- `graphics2d`
+  - used for custom drawing like previews, guides, and shapes
+- `borderlayout`
+  - arranges components by top, bottom, left, right, and center
+- `gridbaglayout`
+  - a flexible layout manager for arranging components in rows and columns
+- `dimension`
+  - used to set the size of components like panels and buttons
+
 purpose:
 - handles layout, drawing, font styling, and custom rendering
 
@@ -188,6 +203,17 @@ used for:
 - `PreparedStatement`
 - `ResultSet`
 - `Statement`
+
+short explanation of each:
+
+- `connection`
+  - represents the active connection between the app and the database
+- `preparedstatement`
+  - used to run sql queries with values safely inserted into them
+- `resultset`
+  - stores the rows returned by a database query
+- `statement`
+  - used to run simple sql commands directly
 
 purpose:
 - connects java code to sqlite
