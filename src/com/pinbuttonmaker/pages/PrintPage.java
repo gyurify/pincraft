@@ -527,7 +527,7 @@ public class PrintPage extends JPanel {
         item.add(previewBox, BorderLayout.CENTER);
 
         installGalleryDrag(item, itemData.getItemId());
-        installGalleryClearOnClick(item, itemData.getItemId());
+        installGalleryClickActions(item, itemData.getItemId());
 
         return item;
     }
@@ -565,19 +565,26 @@ public class PrintPage extends JPanel {
         applyDragSupportRecursive(root, transferHandler, dragStarter);
     }
 
-    private void installGalleryClearOnClick(JComponent root, String itemId) {
-        MouseAdapter clickClearHandler = new MouseAdapter() {
+    private void installGalleryClickActions(JComponent root, String itemId) {
+        MouseAdapter galleryClickHandler = new MouseAdapter() {
             @Override
             public void mouseClicked(MouseEvent event) {
-                if (!SwingUtilities.isLeftMouseButton(event) || event.getClickCount() != 1) {
+                if (!SwingUtilities.isLeftMouseButton(event)) {
                     return;
                 }
 
-                paperPreviewPanel.clearAssignmentsForItem(itemId);
+                if (event.getClickCount() >= 2) {
+                    paperPreviewPanel.fillAllSlotsWithItem(itemId);
+                    return;
+                }
+
+                if (event.getClickCount() == 1) {
+                    paperPreviewPanel.clearAssignmentsForItem(itemId);
+                }
             }
         };
 
-        applyMouseListenerRecursive(root, clickClearHandler);
+        applyMouseListenerRecursive(root, galleryClickHandler);
     }
 
     private void applyDragSupportRecursive(Component component, TransferHandler transferHandler, MouseAdapter dragStarter) {

@@ -160,6 +160,24 @@ public class PaperPreviewPanel extends JPanel {
         }
     }
 
+    public void fillAllSlotsWithItem(String itemId) {
+        if (itemId == null || itemId.trim().isEmpty() || !availableItemsById.containsKey(itemId)) {
+            return;
+        }
+
+        boolean changed = false;
+        for (int i = 0; i < slotAssignments.size(); i++) {
+            if (!itemId.equals(slotAssignments.get(i))) {
+                slotAssignments.set(i, itemId);
+                changed = true;
+            }
+        }
+
+        if (changed) {
+            repaint();
+        }
+    }
+
     public LayoutInfo getLayoutInfo() {
         return layoutInfo;
     }
