@@ -51,6 +51,7 @@ import com.pinbuttonmaker.util.Utils;
 
 public class PrintPage extends JPanel {
     private static final int PRINTABLE_PREVIEW_RESOLUTION = 720;
+    private static final int GALLERY_DRAG_THRESHOLD_PX = 6;
     private static final double PRINT_SIZE_EXTRA_INCHES = 1.0 / 2.54;
 
     private static final Color PAGE_BG = UIStyles.SHELL_BG;
@@ -269,9 +270,20 @@ public class PrintPage extends JPanel {
             BorderFactory.createEmptyBorder(12, 12, 12, 12)
         ));
 
+        JPanel galleryHeader = new JPanel(new BorderLayout(8, 0));
+        galleryHeader.setOpaque(false);
+
         JLabel galleryTitle = new JLabel("Printable Items");
         galleryTitle.setFont(new Font("SansSerif", Font.BOLD, 16));
         galleryTitle.setForeground(primaryText());
+
+        JLabel galleryHint = new JLabel("double-click a card to fill all circles");
+        galleryHint.setFont(new Font("SansSerif", Font.PLAIN, 12));
+        galleryHint.setForeground(secondaryText());
+        galleryHint.setHorizontalAlignment(SwingConstants.RIGHT);
+
+        galleryHeader.add(galleryTitle, BorderLayout.WEST);
+        galleryHeader.add(galleryHint, BorderLayout.CENTER);
 
         galleryListPanel = new JPanel();
         galleryListPanel.setLayout(new BoxLayout(galleryListPanel, BoxLayout.Y_AXIS));
@@ -282,7 +294,7 @@ public class PrintPage extends JPanel {
         galleryScroll.getVerticalScrollBar().setUnitIncrement(14);
         galleryScroll.getViewport().setBackground(panelBg());
 
-        galleryCard.add(galleryTitle, BorderLayout.NORTH);
+        galleryCard.add(galleryHeader, BorderLayout.NORTH);
         galleryCard.add(galleryScroll, BorderLayout.CENTER);
 
         rightPanel.add(controlsCard, BorderLayout.NORTH);
@@ -552,13 +564,44 @@ public class PrintPage extends JPanel {
     private void installGalleryDrag(JComponent root, String itemId) {
         GalleryItemTransferHandler transferHandler = new GalleryItemTransferHandler(itemId);
         MouseAdapter dragStarter = new MouseAdapter() {
+            private java.awt.Point pressPoint;
+            private boolean dragStarted;
+
             @Override
             public void mousePressed(MouseEvent event) {
+                if (!SwingUtilities.isLeftMouseButton(event)) {
+                    pressPoint = null;
+                    dragStarted = false;
+                    return;
+                }
+
+                pressPoint = SwingUtilities.convertPoint((Component) event.getSource(), event.getPoint(), root);
+                dragStarted = false;
+            }
+
+            @Override
+            public void mouseDragged(MouseEvent event) {
+                if (pressPoint == null || dragStarted) {
+                    return;
+                }
+
+                java.awt.Point currentPoint = SwingUtilities.convertPoint((Component) event.getSource(), event.getPoint(), root);
+                if (pressPoint.distance(currentPoint) < GALLERY_DRAG_THRESHOLD_PX) {
+                    return;
+                }
+
                 JComponent source = (JComponent) event.getSource();
                 TransferHandler handler = source.getTransferHandler();
                 if (handler != null) {
+                    dragStarted = true;
                     handler.exportAsDrag(source, event, TransferHandler.COPY);
                 }
+            }
+
+            @Override
+            public void mouseReleased(MouseEvent event) {
+                pressPoint = null;
+                dragStarted = false;
             }
         };
 
@@ -592,6 +635,7 @@ public class PrintPage extends JPanel {
             JComponent dragComponent = (JComponent) component;
             dragComponent.setTransferHandler(transferHandler);
             dragComponent.addMouseListener(dragStarter);
+            dragComponent.addMouseMotionListener(dragStarter);
         }
 
         if (component instanceof Container) {
