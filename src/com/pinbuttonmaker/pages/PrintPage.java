@@ -585,6 +585,7 @@ public class PrintPage extends JPanel {
                     return;
                 }
 
+                //wait for a small movement so double-click still works before drag starts.
                 java.awt.Point currentPoint = SwingUtilities.convertPoint((Component) event.getSource(), event.getPoint(), root);
                 if (pressPoint.distance(currentPoint) < GALLERY_DRAG_THRESHOLD_PX) {
                     return;
@@ -616,11 +617,13 @@ public class PrintPage extends JPanel {
                     return;
                 }
 
+                //double-click fills the whole paper preview with the selected saved design.
                 if (event.getClickCount() >= 2) {
                     paperPreviewPanel.fillAllSlotsWithItem(itemId);
                     return;
                 }
 
+                //single click keeps the quick clear behavior for this printable item.
                 if (event.getClickCount() == 1) {
                     paperPreviewPanel.clearAssignmentsForItem(itemId);
                 }

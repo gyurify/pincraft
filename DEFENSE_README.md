@@ -10,6 +10,7 @@ the system allows a user to:
 - add text and photo layers
 - edit size, rotation, stretch, bend, transparency, and position
 - arrange printable items on paper
+- double-click one printable item to fill the whole current paper layout
 - export the layout as a pdf for printing
 
 ## 2. main purpose of the system
@@ -394,8 +395,13 @@ it handles:
 - layout spacing
 - cut line visibility
 - drag and drop of saved items into print slots
+- double-click fill for all visible print slots
 - removing assigned items
 - export snapshot generation
+
+short explanation:
+
+when the user double-clicks a saved design card in printable items, the print page sends that item id to `PaperPreviewPanel`. the panel then loops through the current slot list and assigns the same design to every visible circle in the paper preview. this makes it faster to prepare a full sheet with one design.
 
 ## 12. how pdf export works
 

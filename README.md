@@ -17,6 +17,7 @@ It combines three main parts in one system:
 - button preview with visible cut and bleed guides
 - print page with paper size and button size options
 - drag-and-drop printable item placement
+- double-click a printable item to fill all circles in the current paper preview
 - PDF export for printing
 
 ## Built With
@@ -201,6 +202,7 @@ On the first run, the application will:
 - choose paper size
 - choose button size
 - drag saved designs into print slots
+- double-click a saved design card to fill all visible circles in the current layout
 - toggle cut lines
 - export printable PDF
 
@@ -252,4 +254,3 @@ On the first run, the application will:
 - more print templates
 - more image editing tools
 - more export options
-

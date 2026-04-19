@@ -165,6 +165,7 @@ public class PaperPreviewPanel extends JPanel {
             return;
         }
 
+        //fill every visible print slot with the same saved design.
         boolean changed = false;
         for (int i = 0; i < slotAssignments.size(); i++) {
             if (!itemId.equals(slotAssignments.get(i))) {
